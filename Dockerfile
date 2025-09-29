@@ -35,8 +35,8 @@ COPY src src
 # Construir la aplicación
 RUN ./gradlew build -x test
 
-# Copiar el JAR construido
-RUN cp build/libs/*.jar app.jar
+# Copiar el JAR construido (encontrar y copiar el JAR principal)
+RUN find build/libs -name "*.jar" -not -name "*-plain.jar" | head -1 | xargs -I {} cp {} app.jar
 
 # Cambiar propietario del archivo JAR
 RUN chown fitandflex:fitandflex app.jar
