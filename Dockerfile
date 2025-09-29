@@ -2,12 +2,17 @@
 # FIT & FLEX - DOCKERFILE
 # ===========================================
 
-# Usar imagen base de OpenJDK 17
+# Usar imagen base de OpenJDK 17 con Gradle para construir la aplicación
 FROM openjdk:17-jdk-slim
 
 # Información del mantenedor
 LABEL maintainer="Fit & Flex Team <support@fitandflex.com>"
 LABEL description="Fit & Flex Backend API"
+
+# Instalar herramientas necesarias
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Crear usuario no-root para seguridad
 RUN groupadd -r fitandflex && useradd -r -g fitandflex fitandflex
@@ -15,8 +20,23 @@ RUN groupadd -r fitandflex && useradd -r -g fitandflex fitandflex
 # Establecer directorio de trabajo
 WORKDIR /app
 
-# Copiar el archivo JAR de la aplicación
-COPY build/libs/fitandflex-*.jar app.jar
+# Copiar archivos de configuración de Gradle
+COPY gradlew .
+COPY gradle gradle
+COPY build.gradle .
+COPY settings.gradle .
+
+# Hacer el gradlew ejecutable
+RUN chmod +x gradlew
+
+# Copiar código fuente
+COPY src src
+
+# Construir la aplicación
+RUN ./gradlew build -x test
+
+# Copiar el JAR construido
+RUN cp build/libs/*.jar app.jar
 
 # Cambiar propietario del archivo JAR
 RUN chown fitandflex:fitandflex app.jar
