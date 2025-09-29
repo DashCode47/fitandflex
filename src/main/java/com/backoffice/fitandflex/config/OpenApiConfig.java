@@ -38,7 +38,7 @@ public class OpenApiConfig {
                                 .url("http://localhost:" + serverPort)
                                 .description("Servidor de desarrollo"),
                         new Server()
-                                .url("https://api.fitandflex.com")
+                                .url("https://fitandflex.onrender.com/")
                                 .description("Servidor de producción")))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new io.swagger.v3.oas.models.Components()
