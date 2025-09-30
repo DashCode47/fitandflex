@@ -21,28 +21,70 @@ public class BranchDto {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @io.swagger.v3.oas.annotations.media.Schema(
+        description = "Datos para crear una nueva sucursal",
+        example = """
+        {
+          "name": "Fit & Flex Quito Norte",
+          "address": "Av. Amazonas N12-123",
+          "city": "Quito",
+          "state": "Pichincha",
+          "country": "Ecuador",
+          "phone": "+593-2-1234567",
+          "email": "quito.norte@fitandflex.com"
+        }
+        """
+    )
     public static class CreateRequest {
         @NotBlank(message = "El nombre de la sucursal es obligatorio")
         @Size(max = 100, message = "El nombre no puede exceder 100 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Nombre de la sucursal",
+            example = "Fit & Flex Quito Norte"
+        )
         private String name;
 
         @Size(max = 150, message = "La dirección no puede exceder 150 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Dirección de la sucursal",
+            example = "Av. Amazonas N12-123"
+        )
         private String address;
 
         @Size(max = 100, message = "La ciudad no puede exceder 100 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Ciudad donde se encuentra la sucursal",
+            example = "Quito"
+        )
         private String city;
 
         @Size(max = 100, message = "El estado no puede exceder 100 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Estado o provincia",
+            example = "Pichincha"
+        )
         private String state;
 
         @Size(max = 50, message = "El país no puede exceder 50 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "País donde se encuentra la sucursal",
+            example = "Ecuador"
+        )
         private String country;
 
         @Size(max = 20, message = "El teléfono no puede exceder 20 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Número de teléfono de la sucursal",
+            example = "+593-2-1234567"
+        )
         private String phone;
 
         @Email(message = "El email debe tener un formato válido")
         @Size(max = 100, message = "El email no puede exceder 100 caracteres")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Email de contacto de la sucursal",
+            example = "quito.norte@fitandflex.com"
+        )
         private String email;
     }
 

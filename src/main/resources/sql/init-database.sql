@@ -75,34 +75,45 @@ CREATE INDEX IF NOT EXISTS idx_user_role ON users(role_id);
 CREATE INDEX IF NOT EXISTS idx_user_branch ON users(branch_id);
 
 -- ===========================================
--- CREATE CLASES TABLE
+-- CREATE CLASSES TABLE
 -- ===========================================
-CREATE TABLE IF NOT EXISTS clases (
+CREATE TABLE IF NOT EXISTS classes (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
-    type VARCHAR(50),
-    difficulty VARCHAR(20),
-    scheduled_date TIMESTAMP NOT NULL,
-    duration_minutes INTEGER NOT NULL,
-    max_capacity INTEGER NOT NULL,
-    current_bookings INTEGER DEFAULT 0,
-    price DECIMAL(10,2) NOT NULL,
+    capacity INTEGER NOT NULL,
     active BOOLEAN DEFAULT TRUE,
-    is_cancelled BOOLEAN DEFAULT FALSE,
     branch_id BIGINT NOT NULL,
-    instructor_id BIGINT,
+    created_by BIGINT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_clase_branch FOREIGN KEY (branch_id) REFERENCES branches(id),
-    CONSTRAINT fk_clase_instructor FOREIGN KEY (instructor_id) REFERENCES users(id)
+    CONSTRAINT fk_class_branch FOREIGN KEY (branch_id) REFERENCES branches(id),
+    CONSTRAINT fk_class_created_by FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
--- Create indexes on clases
-CREATE INDEX IF NOT EXISTS idx_clase_name ON clases(name);
-CREATE INDEX IF NOT EXISTS idx_clase_branch ON clases(branch_id);
-CREATE INDEX IF NOT EXISTS idx_clase_schedule ON clases(scheduled_date);
-CREATE INDEX IF NOT EXISTS idx_clase_instructor ON clases(instructor_id);
+-- Create indexes on classes
+CREATE INDEX IF NOT EXISTS idx_class_name ON classes(name);
+CREATE INDEX IF NOT EXISTS idx_class_branch ON classes(branch_id);
+CREATE INDEX IF NOT EXISTS idx_class_active ON classes(active);
+
+-- ===========================================
+-- CREATE SCHEDULES TABLE
+-- ===========================================
+CREATE TABLE IF NOT EXISTS schedules (
+    id BIGSERIAL PRIMARY KEY,
+    start_time TIMESTAMP NOT NULL,
+    end_time TIMESTAMP NOT NULL,
+    active BOOLEAN DEFAULT TRUE,
+    class_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_schedule_class FOREIGN KEY (class_id) REFERENCES classes(id)
+);
+
+-- Create indexes on schedules
+CREATE INDEX IF NOT EXISTS idx_schedule_class ON schedules(class_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_start_time ON schedules(start_time);
+CREATE INDEX IF NOT EXISTS idx_schedule_active ON schedules(active);
 
 -- ===========================================
 -- CREATE RESERVATIONS TABLE
@@ -110,23 +121,19 @@ CREATE INDEX IF NOT EXISTS idx_clase_instructor ON clases(instructor_id);
 CREATE TABLE IF NOT EXISTS reservations (
     id BIGSERIAL PRIMARY KEY,
     reservation_date TIMESTAMP NOT NULL,
-    reservation_code VARCHAR(20) NOT NULL UNIQUE,
-    status VARCHAR(20) NOT NULL DEFAULT 'CONFIRMED',
-    notes VARCHAR(500),
-    cancellation_reason VARCHAR(500),
-    cancelled_at TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     user_id BIGINT NOT NULL,
-    clase_id BIGINT NOT NULL,
+    schedule_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_reservation_user FOREIGN KEY (user_id) REFERENCES users(id),
-    CONSTRAINT fk_reservation_clase FOREIGN KEY (clase_id) REFERENCES clases(id),
-    CONSTRAINT uk_reservation_user_clase UNIQUE (user_id, clase_id)
+    CONSTRAINT fk_reservation_schedule FOREIGN KEY (schedule_id) REFERENCES schedules(id),
+    CONSTRAINT uk_reservation_user_schedule UNIQUE (user_id, schedule_id)
 );
 
 -- Create indexes on reservations
 CREATE INDEX IF NOT EXISTS idx_reservation_user ON reservations(user_id);
-CREATE INDEX IF NOT EXISTS idx_reservation_clase ON reservations(clase_id);
+CREATE INDEX IF NOT EXISTS idx_reservation_schedule ON reservations(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_reservation_date ON reservations(reservation_date);
 CREATE INDEX IF NOT EXISTS idx_reservation_status ON reservations(status);
 
@@ -234,7 +241,8 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_branches_updated_at BEFORE UPDATE ON branches FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_clases_updated_at BEFORE UPDATE ON clases FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_classes_updated_at BEFORE UPDATE ON classes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_schedules_updated_at BEFORE UPDATE ON schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

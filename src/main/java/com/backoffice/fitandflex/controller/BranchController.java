@@ -107,7 +107,39 @@ public class BranchController {
     @GetMapping
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Page<BranchDto.Response>> getAllBranches(
-            @Parameter(description = "Parámetros de paginación") Pageable pageable) {
+            @Parameter(description = "Número de página (por defecto: 0)", required = false) 
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @Parameter(description = "Tamaño de página (por defecto: 10)", required = false) 
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
+            @RequestParam(value = "sort", defaultValue = "id") String sort) {
+        
+        // Crear Pageable manualmente
+        org.springframework.data.domain.Pageable pageable = 
+            org.springframework.data.domain.PageRequest.of(page, size, 
+                org.springframework.data.domain.Sort.by(sort));
+        
+        Page<BranchDto.Response> branches = branchService.getAllBranches(pageable);
+        return ResponseEntity.ok(branches);
+    }
+
+    /**
+     * Obtener todas las sucursales (sin autenticación para pruebas)
+     */
+    @GetMapping("/test")
+    public ResponseEntity<Page<BranchDto.Response>> getAllBranchesTest(
+            @Parameter(description = "Número de página (por defecto: 0)", required = false) 
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @Parameter(description = "Tamaño de página (por defecto: 10)", required = false) 
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
+            @RequestParam(value = "sort", defaultValue = "id") String sort) {
+        
+        // Crear Pageable manualmente
+        org.springframework.data.domain.Pageable pageable = 
+            org.springframework.data.domain.PageRequest.of(page, size, 
+                org.springframework.data.domain.Sort.by(sort));
+        
         Page<BranchDto.Response> branches = branchService.getAllBranches(pageable);
         return ResponseEntity.ok(branches);
     }
