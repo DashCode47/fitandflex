@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Product entity: representa un producto o servicio adicional ofrecido en una sucursal
+ * Product entity: representa una membresía ofrecida en una sucursal
  */
 @Entity
 @Table(
@@ -42,37 +42,25 @@ public class Product {
     private String description;
 
     @Column(length = 50)
-    private String category; // ej: "MATERIAL", "CLOTHING", "SUPPLEMENT", "SERVICE"
+    private String category; // ej: "BASIC", "PREMIUM", "VIP", "FAMILY"
 
     @Column(length = 20)
-    private String sku; // Stock Keeping Unit - código único del producto
-
-    @Column(length = 100)
-    private String brand;
+    private String sku; // Código único de la membresía
 
     @Column(length = 20)
-    private String size; // ej: "S", "M", "L", "XL", "UNIQUE"
-
-    @Column(length = 50)
-    private String color;
+    private String membershipType; // ej: "MENSUAL", "SEMESTRAL", "ANUAL"
 
     /**
-     * Precio y disponibilidad
+     * Precio y duración
      */
     @Column(name = "price", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
-    @Column(name = "cost_price", precision = 10, scale = 2)
-    private BigDecimal costPrice; // Precio de costo para calcular ganancias
+    @Column(name = "duration_days", nullable = false)
+    private Integer durationDays; // Duración de la membresía en días
 
-    @Column(name = "stock_quantity")
-    private Integer stockQuantity;
-
-    @Column(name = "min_stock_level")
-    private Integer minStockLevel; // Nivel mínimo de stock para alertas
-
-    @Column(name = "max_stock_level")
-    private Integer maxStockLevel; // Nivel máximo de stock
+    @Column(name = "max_users")
+    private Integer maxUsers; // Máximo número de usuarios que pueden usar esta membresía
 
     /**
      * Estado y configuración
@@ -81,20 +69,12 @@ public class Product {
     @Builder.Default
     private Boolean active = true;
 
-    @Column(name = "is_digital")
+    @Column(name = "auto_renewal")
     @Builder.Default
-    private Boolean isDigital = false; // Si es un producto digital (ej: membresía)
+    private Boolean autoRenewal = false; // Si la membresía se renueva automáticamente
 
-    @Column(name = "requires_approval")
-    @Builder.Default
-    private Boolean requiresApproval = false; // Si requiere aprobación antes de la venta
-
-    @Column(name = "is_subscription")
-    @Builder.Default
-    private Boolean isSubscription = false; // Si es un producto de suscripción
-
-    @Column(name = "subscription_duration_days")
-    private Integer subscriptionDurationDays; // Duración en días si es suscripción
+    @Column(name = "trial_period_days")
+    private Integer trialPeriodDays; // Período de prueba en días
 
     /**
      * Información adicional
@@ -102,14 +82,11 @@ public class Product {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
-    @Column(name = "tags", length = 500)
-    private String tags; // Tags separados por comas para búsqueda
+    @Column(name = "benefits", length = 2000)
+    private String benefits; // Beneficios de la membresía
 
-    @Column(name = "weight_grams")
-    private Integer weightGrams; // Peso en gramos para envíos
-
-    @Column(name = "dimensions", length = 50)
-    private String dimensions; // ej: "30x20x5 cm"
+    @Column(name = "features", length = 2000)
+    private String features; // Características de la membresía
 
     /**
      * Relaciones
@@ -145,73 +122,52 @@ public class Product {
      * Métodos de negocio
      */
     private String generateSKU() {
-        // Genera un SKU único basado en el nombre y timestamp
+        // Genera un SKU único basado en el nombre y tipo de membresía
         String prefix = name.replaceAll("[^A-Za-z0-9]", "").substring(0, Math.min(3, name.length())).toUpperCase();
-        return prefix + System.currentTimeMillis() % 10000;
+        String typePrefix = membershipType != null ? membershipType.substring(0, Math.min(3, membershipType.length())) : "MEM";
+        return prefix + typePrefix + System.currentTimeMillis() % 1000;
     }
 
-    public boolean isInStock() {
-        return stockQuantity != null && stockQuantity > 0;
+    public boolean isAvailable() {
+        return active;
     }
 
-    public boolean isLowStock() {
-        return minStockLevel != null && stockQuantity != null && stockQuantity <= minStockLevel;
+    public boolean hasTrialPeriod() {
+        return trialPeriodDays != null && trialPeriodDays > 0;
     }
 
-    public boolean isOverstocked() {
-        return maxStockLevel != null && stockQuantity != null && stockQuantity > maxStockLevel;
+    public boolean supportsAutoRenewal() {
+        return autoRenewal;
     }
 
-    public boolean canBeSold() {
-        return active && (!requiresApproval || isApproved()) && (isDigital || isInStock());
+    public boolean isUnlimitedUsers() {
+        return maxUsers == null || maxUsers <= 0;
     }
 
-    private boolean isApproved() {
-        // Lógica para verificar si el producto está aprobado
-        // Por ahora asumimos que si no requiere aprobación, está aprobado
-        return !requiresApproval;
+    public boolean canAccommodateUsers(Integer userCount) {
+        return isUnlimitedUsers() || (maxUsers != null && userCount <= maxUsers);
     }
 
-    public void reduceStock(Integer quantity) {
-        if (isDigital) {
-            return; // Los productos digitales no tienen stock
+    public String getMembershipTypeDisplay() {
+        if (membershipType == null) {
+            return "Personalizada";
+        }
+        return membershipType;
+    }
+
+    public String getDurationDisplay() {
+        if (durationDays == null) {
+            return "Indefinida";
         }
         
-        if (stockQuantity == null || stockQuantity < quantity) {
-            throw new IllegalStateException("Stock insuficiente");
+        if (durationDays >= 365) {
+            int years = durationDays / 365;
+            return years + (years == 1 ? " año" : " años");
+        } else if (durationDays >= 30) {
+            int months = durationDays / 30;
+            return months + (months == 1 ? " mes" : " meses");
+        } else {
+            return durationDays + (durationDays == 1 ? " día" : " días");
         }
-        
-        this.stockQuantity -= quantity;
-    }
-
-    public void increaseStock(Integer quantity) {
-        if (isDigital) {
-            return; // Los productos digitales no tienen stock
-        }
-        
-        if (this.stockQuantity == null) {
-            this.stockQuantity = 0;
-        }
-        
-        this.stockQuantity += quantity;
-    }
-
-    public BigDecimal getProfitMargin() {
-        if (costPrice == null || price == null) {
-            return BigDecimal.ZERO;
-        }
-        
-        BigDecimal profit = price.subtract(costPrice);
-        return profit.divide(price, 4, java.math.RoundingMode.HALF_UP);
-    }
-
-    public boolean isSubscriptionExpired() {
-        if (!isSubscription || subscriptionDurationDays == null) {
-            return false;
-        }
-        
-        // Lógica para verificar si la suscripción ha expirado
-        // Esto se implementaría con una fecha de inicio de suscripción
-        return false;
     }
 }

@@ -15,10 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Servicio para gestión de productos
+ * Servicio para gestión de membresías
  */
 @Service
 @RequiredArgsConstructor
@@ -30,10 +31,10 @@ public class ProductService {
     private final BranchRepository branchRepository;
 
     /**
-     * Crear un nuevo producto
+     * Crear una nueva membresía
      */
     public ProductDTO.Response createProduct(ProductDTO.CreateRequest request) {
-        log.info("Creando producto '{}' para sucursal {}", request.getName(), request.getBranchId());
+        log.info("Creando membresía '{}' para sucursal {}", request.getName(), request.getBranchId());
 
         // Validar que la sucursal existe
         Branch branch = branchRepository.findById(request.getBranchId())
@@ -41,58 +42,51 @@ public class ProductService {
 
         // Validar que el SKU no existe en la sucursal
         if (request.getSku() != null && productRepository.findBySkuAndBranchId(request.getSku(), request.getBranchId()).isPresent()) {
-            throw new IllegalArgumentException("Ya existe un producto con SKU '" + request.getSku() + "' en esta sucursal");
+            throw new IllegalArgumentException("Ya existe una membresía con SKU '" + request.getSku() + "' en esta sucursal");
         }
 
-        // Crear el producto
+        // Crear la membresía
         Product product = Product.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .category(request.getCategory())
                 .sku(request.getSku())
-                .brand(request.getBrand())
-                .size(request.getSize())
-                .color(request.getColor())
+                .membershipType(request.getMembershipType())
                 .price(request.getPrice())
-                .costPrice(request.getCostPrice())
-                .stockQuantity(request.getStockQuantity())
-                .minStockLevel(request.getMinStockLevel())
-                .maxStockLevel(request.getMaxStockLevel())
+                .durationDays(request.getDurationDays())
+                .maxUsers(request.getMaxUsers())
                 .active(request.getActive())
-                .isDigital(request.getIsDigital())
-                .requiresApproval(request.getRequiresApproval())
-                .isSubscription(request.getIsSubscription())
-                .subscriptionDurationDays(request.getSubscriptionDurationDays())
+                .autoRenewal(request.getAutoRenewal())
+                .trialPeriodDays(request.getTrialPeriodDays())
                 .imageUrl(request.getImageUrl())
-                .tags(request.getTags())
-                .weightGrams(request.getWeightGrams())
-                .dimensions(request.getDimensions())
+                .benefits(request.getBenefits())
+                .features(request.getFeatures())
                 .branch(branch)
                 .build();
 
         Product savedProduct = productRepository.save(product);
-        log.info("Producto creado exitosamente con ID: {}", savedProduct.getId());
+        log.info("Membresía creada exitosamente con ID: {}", savedProduct.getId());
 
         return ProductDTO.fromEntity(savedProduct);
     }
 
     /**
-     * Obtener todos los productos con paginación
+     * Obtener todas las membresías con paginación
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getAllProducts(Pageable pageable) {
-        log.info("Obteniendo todos los productos con paginación: {}", pageable);
+        log.info("Obteniendo todas las membresías con paginación: {}", pageable);
         
         Page<Product> products = productRepository.findAll(pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener resumen de todos los productos
+     * Obtener resumen de todas las membresías
      */
     @Transactional(readOnly = true)
     public List<ProductDTO.SummaryResponse> getAllProductsSummary() {
-        log.info("Obteniendo resumen de todos los productos");
+        log.info("Obteniendo resumen de todas las membresías");
         
         List<Product> products = productRepository.findAll();
         return products.stream()
@@ -101,24 +95,24 @@ public class ProductService {
     }
 
     /**
-     * Obtener producto por ID
+     * Obtener membresía por ID
      */
     @Transactional(readOnly = true)
     public ProductDTO.Response getProductById(Long id) {
-        log.info("Obteniendo producto con ID: {}", id);
+        log.info("Obteniendo membresía con ID: {}", id);
         
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Membresía no encontrada con ID: " + id));
         
         return ProductDTO.fromEntity(product);
     }
 
     /**
-     * Obtener productos por sucursal
+     * Obtener membresías por sucursal
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getProductsByBranch(Long branchId, Pageable pageable) {
-        log.info("Obteniendo productos para sucursal {} con paginación: {}", branchId, pageable);
+        log.info("Obteniendo membresías para sucursal {} con paginación: {}", branchId, pageable);
         
         // Validar que la sucursal existe
         if (!branchRepository.existsById(branchId)) {
@@ -130,22 +124,22 @@ public class ProductService {
     }
 
     /**
-     * Obtener productos por categoría
+     * Obtener membresías por categoría
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getProductsByCategory(String category, Pageable pageable) {
-        log.info("Obteniendo productos de categoría '{}' con paginación: {}", category, pageable);
+        log.info("Obteniendo membresías de categoría '{}' con paginación: {}", category, pageable);
         
         Page<Product> products = productRepository.findByCategory(category, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos por sucursal y categoría
+     * Obtener membresías por sucursal y categoría
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getProductsByBranchAndCategory(Long branchId, String category, Pageable pageable) {
-        log.info("Obteniendo productos de sucursal {} y categoría '{}' con paginación: {}", branchId, category, pageable);
+        log.info("Obteniendo membresías de sucursal {} y categoría '{}' con paginación: {}", branchId, category, pageable);
         
         // Validar que la sucursal existe
         if (!branchRepository.existsById(branchId)) {
@@ -157,22 +151,22 @@ public class ProductService {
     }
 
     /**
-     * Obtener productos activos
+     * Obtener membresías activas
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getActiveProducts(Pageable pageable) {
-        log.info("Obteniendo productos activos con paginación: {}", pageable);
+        log.info("Obteniendo membresías activas con paginación: {}", pageable);
         
         Page<Product> products = productRepository.findByActiveTrue(pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos activos por sucursal
+     * Obtener membresías activas por sucursal
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getActiveProductsByBranch(Long branchId, Pageable pageable) {
-        log.info("Obteniendo productos activos de sucursal {} con paginación: {}", branchId, pageable);
+        log.info("Obteniendo membresías activas de sucursal {} con paginación: {}", branchId, pageable);
         
         // Validar que la sucursal existe
         if (!branchRepository.existsById(branchId)) {
@@ -184,160 +178,191 @@ public class ProductService {
     }
 
     /**
-     * Obtener productos por marca
+     * Obtener membresías por tipo
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getProductsByBrand(String brand, Pageable pageable) {
-        log.info("Obteniendo productos de marca '{}' con paginación: {}", brand, pageable);
+    public Page<ProductDTO.Response> getProductsByMembershipType(String membershipType, Pageable pageable) {
+        log.info("Obteniendo membresías de tipo '{}' con paginación: {}", membershipType, pageable);
         
-        Page<Product> products = productRepository.findByBrand(brand, pageable);
+        Page<Product> products = productRepository.findByMembershipType(membershipType, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos por rango de precios
+     * Obtener membresías por rango de precios
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> getProductsByPriceRange(BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
-        log.info("Obteniendo productos entre ${} y ${} con paginación: {}", minPrice, maxPrice, pageable);
+        log.info("Obteniendo membresías entre ${} y ${} con paginación: {}", minPrice, maxPrice, pageable);
         
         Page<Product> products = productRepository.findByPriceBetween(minPrice, maxPrice, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos con stock bajo
+     * Obtener membresías por duración
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getLowStockProducts(Pageable pageable) {
-        log.info("Obteniendo productos con stock bajo con paginación: {}", pageable);
+    public Page<ProductDTO.Response> getProductsByDuration(Integer durationDays, Pageable pageable) {
+        log.info("Obteniendo membresías con duración {} días con paginación: {}", durationDays, pageable);
         
-        Page<Product> products = productRepository.findLowStockProducts(pageable);
+        Page<Product> products = productRepository.findByDurationDays(durationDays, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos con stock bajo por sucursal
+     * Obtener membresías por rango de duración
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getLowStockProductsByBranch(Long branchId, Pageable pageable) {
-        log.info("Obteniendo productos con stock bajo de sucursal {} con paginación: {}", branchId, pageable);
+    public Page<ProductDTO.Response> getProductsByDurationRange(Integer minDays, Integer maxDays, Pageable pageable) {
+        log.info("Obteniendo membresías entre {} y {} días con paginación: {}", minDays, maxDays, pageable);
         
-        // Validar que la sucursal existe
-        if (!branchRepository.existsById(branchId)) {
-            throw new IllegalArgumentException("Sucursal no encontrada con ID: " + branchId);
-        }
-        
-        Page<Product> products = productRepository.findLowStockProductsByBranch(branchId, pageable);
+        Page<Product> products = productRepository.findByDurationDaysBetween(minDays, maxDays, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos sin stock
+     * Obtener membresías con período de prueba
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getOutOfStockProducts(Pageable pageable) {
-        log.info("Obteniendo productos sin stock con paginación: {}", pageable);
+    public Page<ProductDTO.Response> getProductsWithTrialPeriod(Integer minTrialDays, Pageable pageable) {
+        log.info("Obteniendo membresías con período de prueba mínimo {} días con paginación: {}", minTrialDays, pageable);
         
-        Page<Product> products = productRepository.findOutOfStockProducts(pageable);
+        Page<Product> products = productRepository.findByTrialPeriodDaysGreaterThan(minTrialDays, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos sin stock por sucursal
+     * Obtener membresías con renovación automática
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getOutOfStockProductsByBranch(Long branchId, Pageable pageable) {
-        log.info("Obteniendo productos sin stock de sucursal {} con paginación: {}", branchId, pageable);
+    public Page<ProductDTO.Response> getProductsWithAutoRenewal(Pageable pageable) {
+        log.info("Obteniendo membresías con renovación automática con paginación: {}", pageable);
         
-        // Validar que la sucursal existe
-        if (!branchRepository.existsById(branchId)) {
-            throw new IllegalArgumentException("Sucursal no encontrada con ID: " + branchId);
-        }
-        
-        Page<Product> products = productRepository.findOutOfStockProductsByBranch(branchId, pageable);
+        Page<Product> products = productRepository.findByAutoRenewalTrue(pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos digitales
+     * Obtener membresías sin renovación automática
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getDigitalProducts(Pageable pageable) {
-        log.info("Obteniendo productos digitales con paginación: {}", pageable);
+    public Page<ProductDTO.Response> getProductsWithoutAutoRenewal(Pageable pageable) {
+        log.info("Obteniendo membresías sin renovación automática con paginación: {}", pageable);
         
-        Page<Product> products = productRepository.findByIsDigitalTrue(pageable);
+        Page<Product> products = productRepository.findByAutoRenewalFalse(pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos de suscripción
-     */
-    @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getSubscriptionProducts(Pageable pageable) {
-        log.info("Obteniendo productos de suscripción con paginación: {}", pageable);
-        
-        Page<Product> products = productRepository.findByIsSubscriptionTrue(pageable);
-        return products.map(ProductDTO::fromEntity);
-    }
-
-    /**
-     * Buscar productos por nombre
+     * Buscar membresías por nombre
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> searchProductsByName(String name, Pageable pageable) {
-        log.info("Buscando productos por nombre '{}' con paginación: {}", name, pageable);
+        log.info("Buscando membresías por nombre '{}' con paginación: {}", name, pageable);
         
         Page<Product> products = productRepository.findByNameContainingIgnoreCase(name, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Buscar productos por descripción
+     * Buscar membresías por descripción
      */
     @Transactional(readOnly = true)
     public Page<ProductDTO.Response> searchProductsByDescription(String description, Pageable pageable) {
-        log.info("Buscando productos por descripción '{}' con paginación: {}", description, pageable);
+        log.info("Buscando membresías por descripción '{}' con paginación: {}", description, pageable);
         
         Page<Product> products = productRepository.findByDescriptionContainingIgnoreCase(description, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos disponibles para venta
+     * Buscar membresías por beneficios
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getAvailableForSaleProducts(Pageable pageable) {
-        log.info("Obteniendo productos disponibles para venta con paginación: {}", pageable);
+    public Page<ProductDTO.Response> searchProductsByBenefits(String benefit, Pageable pageable) {
+        log.info("Buscando membresías por beneficio '{}' con paginación: {}", benefit, pageable);
         
-        Page<Product> products = productRepository.findAvailableForSale(pageable);
+        Page<Product> products = productRepository.findByBenefitsContainingIgnoreCase(benefit, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Obtener productos disponibles para venta por sucursal
+     * Buscar membresías por características
      */
     @Transactional(readOnly = true)
-    public Page<ProductDTO.Response> getAvailableForSaleProductsByBranch(Long branchId, Pageable pageable) {
-        log.info("Obteniendo productos disponibles para venta de sucursal {} con paginación: {}", branchId, pageable);
+    public Page<ProductDTO.Response> searchProductsByFeatures(String feature, Pageable pageable) {
+        log.info("Buscando membresías por característica '{}' con paginación: {}", feature, pageable);
+        
+        Page<Product> products = productRepository.findByFeaturesContainingIgnoreCase(feature, pageable);
+        return products.map(ProductDTO::fromEntity);
+    }
+
+    /**
+     * Obtener membresías disponibles
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductDTO.Response> getAvailableProducts(Pageable pageable) {
+        log.info("Obteniendo membresías disponibles con paginación: {}", pageable);
+        
+        Page<Product> products = productRepository.findAvailableMemberships(pageable);
+        return products.map(ProductDTO::fromEntity);
+    }
+
+    /**
+     * Obtener membresías disponibles por sucursal
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductDTO.Response> getAvailableProductsByBranch(Long branchId, Pageable pageable) {
+        log.info("Obteniendo membresías disponibles de sucursal {} con paginación: {}", branchId, pageable);
         
         // Validar que la sucursal existe
         if (!branchRepository.existsById(branchId)) {
             throw new IllegalArgumentException("Sucursal no encontrada con ID: " + branchId);
         }
         
-        Page<Product> products = productRepository.findAvailableForSaleByBranch(branchId, pageable);
+        Page<Product> products = productRepository.findAvailableMembershipsByBranch(branchId, pageable);
         return products.map(ProductDTO::fromEntity);
     }
 
     /**
-     * Actualizar producto
+     * Obtener membresías ilimitadas
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductDTO.Response> getUnlimitedProducts(Pageable pageable) {
+        log.info("Obteniendo membresías ilimitadas con paginación: {}", pageable);
+        
+        Page<Product> products = productRepository.findUnlimitedMemberships(pageable);
+        return products.map(ProductDTO::fromEntity);
+    }
+
+    /**
+     * Buscar membresías por múltiples criterios
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductDTO.Response> searchProductsByCriteria(
+            Long branchId, String category, String membershipType, Boolean active, 
+            Boolean autoRenewal, BigDecimal minPrice, BigDecimal maxPrice, 
+            Integer minDuration, Integer maxDuration, Pageable pageable) {
+        
+        log.info("Buscando membresías con criterios: branchId={}, category={}, membershipType={}, active={}, autoRenewal={}, minPrice={}, maxPrice={}, minDuration={}, maxDuration={}", 
+                branchId, category, membershipType, active, autoRenewal, minPrice, maxPrice, minDuration, maxDuration);
+        
+        Page<Product> products = productRepository.findByMultipleCriteria(
+                branchId, category, membershipType, active, autoRenewal, 
+                minPrice, maxPrice, minDuration, maxDuration, pageable);
+        
+        return products.map(ProductDTO::fromEntity);
+    }
+
+    /**
+     * Actualizar membresía
      */
     public ProductDTO.Response updateProduct(Long id, ProductDTO.UpdateRequest request) {
-        log.info("Actualizando producto con ID: {}", id);
+        log.info("Actualizando membresía con ID: {}", id);
         
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Membresía no encontrada con ID: " + id));
         
         // Actualizar campos si se proporcionan
         if (request.getName() != null) {
@@ -352,148 +377,89 @@ public class ProductService {
         if (request.getSku() != null) {
             // Validar que el SKU no existe en otra sucursal
             if (productRepository.findBySkuAndBranchId(request.getSku(), product.getBranch().getId()).isPresent()) {
-                throw new IllegalArgumentException("Ya existe un producto con SKU '" + request.getSku() + "' en esta sucursal");
+                throw new IllegalArgumentException("Ya existe una membresía con SKU '" + request.getSku() + "' en esta sucursal");
             }
             product.setSku(request.getSku());
         }
-        if (request.getBrand() != null) {
-            product.setBrand(request.getBrand());
-        }
-        if (request.getSize() != null) {
-            product.setSize(request.getSize());
-        }
-        if (request.getColor() != null) {
-            product.setColor(request.getColor());
+        if (request.getMembershipType() != null) {
+            product.setMembershipType(request.getMembershipType());
         }
         if (request.getPrice() != null) {
             product.setPrice(request.getPrice());
         }
-        if (request.getCostPrice() != null) {
-            product.setCostPrice(request.getCostPrice());
+        if (request.getDurationDays() != null) {
+            product.setDurationDays(request.getDurationDays());
         }
-        if (request.getStockQuantity() != null) {
-            product.setStockQuantity(request.getStockQuantity());
-        }
-        if (request.getMinStockLevel() != null) {
-            product.setMinStockLevel(request.getMinStockLevel());
-        }
-        if (request.getMaxStockLevel() != null) {
-            product.setMaxStockLevel(request.getMaxStockLevel());
+        if (request.getMaxUsers() != null) {
+            product.setMaxUsers(request.getMaxUsers());
         }
         if (request.getActive() != null) {
             product.setActive(request.getActive());
         }
-        if (request.getIsDigital() != null) {
-            product.setIsDigital(request.getIsDigital());
+        if (request.getAutoRenewal() != null) {
+            product.setAutoRenewal(request.getAutoRenewal());
         }
-        if (request.getRequiresApproval() != null) {
-            product.setRequiresApproval(request.getRequiresApproval());
-        }
-        if (request.getIsSubscription() != null) {
-            product.setIsSubscription(request.getIsSubscription());
-        }
-        if (request.getSubscriptionDurationDays() != null) {
-            product.setSubscriptionDurationDays(request.getSubscriptionDurationDays());
+        if (request.getTrialPeriodDays() != null) {
+            product.setTrialPeriodDays(request.getTrialPeriodDays());
         }
         if (request.getImageUrl() != null) {
             product.setImageUrl(request.getImageUrl());
         }
-        if (request.getTags() != null) {
-            product.setTags(request.getTags());
+        if (request.getBenefits() != null) {
+            product.setBenefits(request.getBenefits());
         }
-        if (request.getWeightGrams() != null) {
-            product.setWeightGrams(request.getWeightGrams());
-        }
-        if (request.getDimensions() != null) {
-            product.setDimensions(request.getDimensions());
+        if (request.getFeatures() != null) {
+            product.setFeatures(request.getFeatures());
         }
         
         Product updatedProduct = productRepository.save(product);
-        log.info("Producto actualizado exitosamente con ID: {}", updatedProduct.getId());
+        log.info("Membresía actualizada exitosamente con ID: {}", updatedProduct.getId());
         
         return ProductDTO.fromEntity(updatedProduct);
     }
 
     /**
-     * Ajustar stock de producto
-     */
-    public ProductDTO.Response adjustStock(Long id, ProductDTO.StockAdjustmentRequest request) {
-        log.info("Ajustando stock del producto {} con operación {} y cantidad {}", id, request.getOperation(), request.getQuantity());
-        
-        Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + id));
-        
-        // Validar que no es un producto digital
-        if (product.getIsDigital()) {
-            throw new IllegalArgumentException("No se puede ajustar el stock de un producto digital");
-        }
-        
-        switch (request.getOperation().toUpperCase()) {
-            case "ADD":
-                product.increaseStock(request.getQuantity());
-                break;
-            case "SUBTRACT":
-                product.reduceStock(request.getQuantity());
-                break;
-            case "SET":
-                product.setStockQuantity(request.getQuantity());
-                break;
-            default:
-                throw new IllegalArgumentException("Operación no válida: " + request.getOperation());
-        }
-        
-        Product updatedProduct = productRepository.save(product);
-        log.info("Stock ajustado exitosamente para producto con ID: {}", updatedProduct.getId());
-        
-        return ProductDTO.fromEntity(updatedProduct);
-    }
-
-    /**
-     * Eliminar producto
+     * Eliminar membresía
      */
     public void deleteProduct(Long id) {
-        log.info("Eliminando producto con ID: {}", id);
+        log.info("Eliminando membresía con ID: {}", id);
         
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado con ID: " + id));
+                .orElseThrow(() -> new IllegalArgumentException("Membresía no encontrada con ID: " + id));
         
-        // Validar que el producto puede ser eliminado
-        if (product.getActive() && product.getStockQuantity() != null && product.getStockQuantity() > 0) {
-            throw new IllegalArgumentException("No se puede eliminar un producto activo con stock");
+        // Validar que la membresía puede ser eliminada
+        if (product.getActive()) {
+            throw new IllegalArgumentException("No se puede eliminar una membresía activa. Desactívela primero.");
         }
         
         productRepository.delete(product);
-        log.info("Producto eliminado exitosamente con ID: {}", id);
+        log.info("Membresía eliminada exitosamente con ID: {}", id);
     }
 
     /**
-     * Obtener estadísticas de productos
+     * Obtener estadísticas de membresías
      */
     @Transactional(readOnly = true)
     public CommonDto.SuccessResponse<Object> getProductStats() {
         long totalProducts = productRepository.count();
         long activeProducts = productRepository.countByActiveTrue();
-        long digitalProducts = productRepository.countByIsDigitalTrue();
-        long subscriptionProducts = productRepository.countByIsSubscriptionTrue();
-        long lowStockProducts = productRepository.countLowStockProducts();
-        long outOfStockProducts = productRepository.countOutOfStockProducts();
+        long autoRenewalProducts = productRepository.countByAutoRenewalTrue();
+        long trialProducts = productRepository.countMembershipsWithTrialPeriod();
         
         return CommonDto.SuccessResponse.builder()
                 .success(true)
                 .message("Estadísticas obtenidas exitosamente")
-                .data(java.util.Map.of(
-                    "totalProducts", totalProducts,
-                    "activeProducts", activeProducts,
-                    "digitalProducts", digitalProducts,
-                    "subscriptionProducts", subscriptionProducts,
-                    "lowStockProducts", lowStockProducts,
-                    "outOfStockProducts", outOfStockProducts
+                .data(Map.of(
+                    "totalMemberships", totalProducts,
+                    "activeMemberships", activeProducts,
+                    "autoRenewalMemberships", autoRenewalProducts,
+                    "trialMemberships", trialProducts
                 ))
                 .build();
     }
 
     /**
-     * Obtener estadísticas de productos por sucursal
+     * Obtener estadísticas de membresías por sucursal
      */
     @Transactional(readOnly = true)
     public CommonDto.SuccessResponse<Object> getProductStatsByBranch(Long branchId) {
@@ -504,20 +470,20 @@ public class ProductService {
         
         long totalProducts = productRepository.countByBranchId(branchId);
         long activeProducts = productRepository.countByBranchIdAndActiveTrue(branchId);
-        long lowStockProducts = productRepository.countLowStockProductsByBranch(branchId);
-        long outOfStockProducts = productRepository.countOutOfStockProductsByBranch(branchId);
-        BigDecimal inventoryValue = productRepository.sumInventoryValueByBranch(branchId);
+        long autoRenewalProducts = productRepository.countByBranchIdAndAutoRenewalTrue(branchId);
+        long trialProducts = productRepository.countMembershipsWithTrialPeriodByBranch(branchId);
+        BigDecimal totalValue = productRepository.sumPriceByBranch(branchId);
         
         return CommonDto.SuccessResponse.builder()
                 .success(true)
                 .message("Estadísticas de la sucursal obtenidas exitosamente")
-                .data(java.util.Map.of(
+                .data(Map.of(
                     "branchId", branchId,
-                    "totalProducts", totalProducts,
-                    "activeProducts", activeProducts,
-                    "lowStockProducts", lowStockProducts,
-                    "outOfStockProducts", outOfStockProducts,
-                    "inventoryValue", inventoryValue != null ? inventoryValue : BigDecimal.ZERO
+                    "totalMemberships", totalProducts,
+                    "activeMemberships", activeProducts,
+                    "autoRenewalMemberships", autoRenewalProducts,
+                    "trialMemberships", trialProducts,
+                    "totalValue", totalValue != null ? totalValue : BigDecimal.ZERO
                 ))
                 .build();
     }

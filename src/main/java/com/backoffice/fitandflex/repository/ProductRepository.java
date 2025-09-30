@@ -13,206 +13,239 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Repositorio para gestión de productos
+ * Repositorio para gestión de membresías
  */
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
     /**
-     * Buscar productos por sucursal
+     * Buscar membresías por sucursal
      */
     List<Product> findByBranchId(Long branchId);
     Page<Product> findByBranchId(Long branchId, Pageable pageable);
 
     /**
-     * Buscar productos por categoría
+     * Buscar membresías por categoría
      */
     List<Product> findByCategory(String category);
     Page<Product> findByCategory(String category, Pageable pageable);
 
     /**
-     * Buscar productos por sucursal y categoría
+     * Buscar membresías por sucursal y categoría
      */
     List<Product> findByBranchIdAndCategory(Long branchId, String category);
     Page<Product> findByBranchIdAndCategory(Long branchId, String category, Pageable pageable);
 
     /**
-     * Buscar productos por estado activo
+     * Buscar membresías por estado activo
      */
     List<Product> findByActiveTrue();
     Page<Product> findByActiveTrue(Pageable pageable);
 
     /**
-     * Buscar productos activos por sucursal
+     * Buscar membresías activas por sucursal
      */
     List<Product> findByBranchIdAndActiveTrue(Long branchId);
     Page<Product> findByBranchIdAndActiveTrue(Long branchId, Pageable pageable);
 
     /**
-     * Buscar productos por marca
+     * Buscar membresías por tipo
      */
-    List<Product> findByBrand(String brand);
-    Page<Product> findByBrand(String brand, Pageable pageable);
+    List<Product> findByMembershipType(String membershipType);
+    Page<Product> findByMembershipType(String membershipType, Pageable pageable);
 
     /**
-     * Buscar productos por SKU
+     * Buscar membresías por SKU
      */
     Optional<Product> findBySku(String sku);
 
     /**
-     * Buscar productos por SKU y sucursal
+     * Buscar membresías por SKU y sucursal
      */
     Optional<Product> findBySkuAndBranchId(String sku, Long branchId);
 
     /**
-     * Buscar productos por rango de precios
+     * Buscar membresías por rango de precios
      */
     List<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice);
     Page<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
 
     /**
-     * Buscar productos con stock bajo
+     * Buscar membresías por duración
      */
-    @Query("SELECT p FROM Product p WHERE p.stockQuantity IS NOT NULL AND p.minStockLevel IS NOT NULL AND p.stockQuantity <= p.minStockLevel")
-    List<Product> findLowStockProducts();
-    Page<Product> findLowStockProducts(Pageable pageable);
+    List<Product> findByDurationDays(Integer durationDays);
+    Page<Product> findByDurationDays(Integer durationDays, Pageable pageable);
 
     /**
-     * Buscar productos con stock bajo por sucursal
+     * Buscar membresías por rango de duración
      */
-    @Query("SELECT p FROM Product p WHERE p.branch.id = :branchId AND p.stockQuantity IS NOT NULL AND p.minStockLevel IS NOT NULL AND p.stockQuantity <= p.minStockLevel")
-    List<Product> findLowStockProductsByBranch(@Param("branchId") Long branchId);
-    Page<Product> findLowStockProductsByBranch(@Param("branchId") Long branchId, Pageable pageable);
+    List<Product> findByDurationDaysBetween(Integer minDays, Integer maxDays);
+    Page<Product> findByDurationDaysBetween(Integer minDays, Integer maxDays, Pageable pageable);
 
     /**
-     * Buscar productos sin stock
+     * Buscar membresías con período de prueba
      */
-    @Query("SELECT p FROM Product p WHERE p.stockQuantity IS NULL OR p.stockQuantity = 0")
-    List<Product> findOutOfStockProducts();
-    Page<Product> findOutOfStockProducts(Pageable pageable);
+    List<Product> findByTrialPeriodDaysGreaterThan(Integer minTrialDays);
+    Page<Product> findByTrialPeriodDaysGreaterThan(Integer minTrialDays, Pageable pageable);
 
     /**
-     * Buscar productos sin stock por sucursal
+     * Buscar membresías con renovación automática
      */
-    @Query("SELECT p FROM Product p WHERE p.branch.id = :branchId AND (p.stockQuantity IS NULL OR p.stockQuantity = 0)")
-    List<Product> findOutOfStockProductsByBranch(@Param("branchId") Long branchId);
-    Page<Product> findOutOfStockProductsByBranch(@Param("branchId") Long branchId, Pageable pageable);
+    List<Product> findByAutoRenewalTrue();
+    Page<Product> findByAutoRenewalTrue(Pageable pageable);
 
     /**
-     * Buscar productos digitales
+     * Buscar membresías sin renovación automática
      */
-    List<Product> findByIsDigitalTrue();
-    Page<Product> findByIsDigitalTrue(Pageable pageable);
+    List<Product> findByAutoRenewalFalse();
+    Page<Product> findByAutoRenewalFalse(Pageable pageable);
 
     /**
-     * Buscar productos de suscripción
-     */
-    List<Product> findByIsSubscriptionTrue();
-    Page<Product> findByIsSubscriptionTrue(Pageable pageable);
-
-    /**
-     * Buscar productos por nombre (búsqueda parcial)
+     * Buscar membresías por nombre (búsqueda parcial)
      */
     List<Product> findByNameContainingIgnoreCase(String name);
     Page<Product> findByNameContainingIgnoreCase(String name, Pageable pageable);
 
     /**
-     * Buscar productos por sucursal y nombre
-     */
-    List<Product> findByBranchIdAndNameContainingIgnoreCase(Long branchId, String name);
-    Page<Product> findByBranchIdAndNameContainingIgnoreCase(Long branchId, String name, Pageable pageable);
-
-    /**
-     * Buscar productos por descripción (búsqueda parcial)
+     * Buscar membresías por descripción (búsqueda parcial)
      */
     List<Product> findByDescriptionContainingIgnoreCase(String description);
     Page<Product> findByDescriptionContainingIgnoreCase(String description, Pageable pageable);
 
     /**
-     * Buscar productos que pueden ser vendidos
+     * Buscar membresías por beneficios (búsqueda parcial)
      */
-    @Query("SELECT p FROM Product p WHERE p.active = true AND (p.requiresApproval = false OR p.requiresApproval IS NULL) AND (p.isDigital = true OR (p.stockQuantity IS NOT NULL AND p.stockQuantity > 0))")
-    List<Product> findAvailableForSale();
-    Page<Product> findAvailableForSale(Pageable pageable);
+    @Query("SELECT p FROM Product p WHERE LOWER(p.benefits) LIKE LOWER(CONCAT('%', :benefit, '%'))")
+    List<Product> findByBenefitsContainingIgnoreCase(@Param("benefit") String benefit);
+
+    @Query("SELECT p FROM Product p WHERE LOWER(p.benefits) LIKE LOWER(CONCAT('%', :benefit, '%'))")
+    Page<Product> findByBenefitsContainingIgnoreCase(@Param("benefit") String benefit, Pageable pageable);
 
     /**
-     * Buscar productos disponibles para venta por sucursal
+     * Buscar membresías por características (búsqueda parcial)
      */
-    @Query("SELECT p FROM Product p WHERE p.branch.id = :branchId AND p.active = true AND (p.requiresApproval = false OR p.requiresApproval IS NULL) AND (p.isDigital = true OR (p.stockQuantity IS NOT NULL AND p.stockQuantity > 0))")
-    List<Product> findAvailableForSaleByBranch(@Param("branchId") Long branchId);
-    Page<Product> findAvailableForSaleByBranch(@Param("branchId") Long branchId, Pageable pageable);
+    @Query("SELECT p FROM Product p WHERE LOWER(p.features) LIKE LOWER(CONCAT('%', :feature, '%'))")
+    List<Product> findByFeaturesContainingIgnoreCase(@Param("feature") String feature);
+
+    @Query("SELECT p FROM Product p WHERE LOWER(p.features) LIKE LOWER(CONCAT('%', :feature, '%'))")
+    Page<Product> findByFeaturesContainingIgnoreCase(@Param("feature") String feature, Pageable pageable);
 
     /**
-     * Contar productos por sucursal
+     * Buscar membresías disponibles
+     */
+    @Query("SELECT p FROM Product p WHERE p.active = true")
+    List<Product> findAvailableMemberships();
+
+    @Query("SELECT p FROM Product p WHERE p.active = true")
+    Page<Product> findAvailableMemberships(Pageable pageable);
+
+    /**
+     * Buscar membresías disponibles por sucursal
+     */
+    @Query("SELECT p FROM Product p WHERE p.branch.id = :branchId AND p.active = true")
+    List<Product> findAvailableMembershipsByBranch(@Param("branchId") Long branchId);
+
+    @Query("SELECT p FROM Product p WHERE p.branch.id = :branchId AND p.active = true")
+    Page<Product> findAvailableMembershipsByBranch(@Param("branchId") Long branchId, Pageable pageable);
+
+    /**
+     * Buscar membresías por máximo de usuarios
+     */
+    List<Product> findByMaxUsers(Integer maxUsers);
+    Page<Product> findByMaxUsers(Integer maxUsers, Pageable pageable);
+
+    /**
+     * Buscar membresías ilimitadas (sin límite de usuarios)
+     */
+    @Query("SELECT p FROM Product p WHERE p.maxUsers IS NULL OR p.maxUsers <= 0")
+    List<Product> findUnlimitedMemberships();
+
+    @Query("SELECT p FROM Product p WHERE p.maxUsers IS NULL OR p.maxUsers <= 0")
+    Page<Product> findUnlimitedMemberships(Pageable pageable);
+
+    /**
+     * Contar membresías por sucursal
      */
     long countByBranchId(Long branchId);
+    long countByActiveTrue();
     long countByBranchIdAndActiveTrue(Long branchId);
 
     /**
-     * Contar productos por categoría
+     * Contar membresías por categoría
      */
     long countByCategory(String category);
     long countByBranchIdAndCategory(Long branchId, String category);
 
     /**
-     * Contar productos con stock bajo
+     * Contar membresías por tipo
      */
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.stockQuantity IS NOT NULL AND p.minStockLevel IS NOT NULL AND p.stockQuantity <= p.minStockLevel")
-    long countLowStockProducts();
-
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.branch.id = :branchId AND p.stockQuantity IS NOT NULL AND p.minStockLevel IS NOT NULL AND p.stockQuantity <= p.minStockLevel")
-    long countLowStockProductsByBranch(@Param("branchId") Long branchId);
+    long countByMembershipType(String membershipType);
+    long countByBranchIdAndMembershipType(Long branchId, String membershipType);
 
     /**
-     * Contar productos sin stock
+     * Contar membresías con renovación automática
      */
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.stockQuantity IS NULL OR p.stockQuantity = 0")
-    long countOutOfStockProducts();
-
-    @Query("SELECT COUNT(p) FROM Product p WHERE p.branch.id = :branchId AND (p.stockQuantity IS NULL OR p.stockQuantity = 0)")
-    long countOutOfStockProductsByBranch(@Param("branchId") Long branchId);
+    long countByAutoRenewalTrue();
+    long countByBranchIdAndAutoRenewalTrue(Long branchId);
 
     /**
-     * Sumar valor total del inventario por sucursal
+     * Contar membresías con período de prueba
      */
-    @Query("SELECT SUM(p.price * p.stockQuantity) FROM Product p WHERE p.branch.id = :branchId AND p.stockQuantity IS NOT NULL")
-    BigDecimal sumInventoryValueByBranch(@Param("branchId") Long branchId);
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.trialPeriodDays IS NOT NULL AND p.trialPeriodDays > 0")
+    long countMembershipsWithTrialPeriod();
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE p.branch.id = :branchId AND p.trialPeriodDays IS NOT NULL AND p.trialPeriodDays > 0")
+    long countMembershipsWithTrialPeriodByBranch(@Param("branchId") Long branchId);
 
     /**
-     * Buscar productos por múltiples criterios
+     * Sumar valor total de membresías por sucursal
+     */
+    @Query("SELECT SUM(p.price) FROM Product p WHERE p.branch.id = :branchId")
+    BigDecimal sumPriceByBranch(@Param("branchId") Long branchId);
+
+    /**
+     * Buscar membresías por múltiples criterios
      */
     @Query("SELECT p FROM Product p WHERE " +
            "(:branchId IS NULL OR p.branch.id = :branchId) AND " +
            "(:category IS NULL OR p.category = :category) AND " +
-           "(:brand IS NULL OR p.brand = :brand) AND " +
+           "(:membershipType IS NULL OR p.membershipType = :membershipType) AND " +
            "(:active IS NULL OR p.active = :active) AND " +
-           "(:isDigital IS NULL OR p.isDigital = :isDigital) AND " +
+           "(:autoRenewal IS NULL OR p.autoRenewal = :autoRenewal) AND " +
            "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
-           "(:maxPrice IS NULL OR p.price <= :maxPrice)")
+           "(:maxPrice IS NULL OR p.price <= :maxPrice) AND " +
+           "(:minDuration IS NULL OR p.durationDays >= :minDuration) AND " +
+           "(:maxDuration IS NULL OR p.durationDays <= :maxDuration)")
     List<Product> findByMultipleCriteria(
             @Param("branchId") Long branchId,
             @Param("category") String category,
-            @Param("brand") String brand,
+            @Param("membershipType") String membershipType,
             @Param("active") Boolean active,
-            @Param("isDigital") Boolean isDigital,
+            @Param("autoRenewal") Boolean autoRenewal,
             @Param("minPrice") BigDecimal minPrice,
-            @Param("maxPrice") BigDecimal maxPrice);
+            @Param("maxPrice") BigDecimal maxPrice,
+            @Param("minDuration") Integer minDuration,
+            @Param("maxDuration") Integer maxDuration);
 
     @Query("SELECT p FROM Product p WHERE " +
            "(:branchId IS NULL OR p.branch.id = :branchId) AND " +
            "(:category IS NULL OR p.category = :category) AND " +
-           "(:brand IS NULL OR p.brand = :brand) AND " +
+           "(:membershipType IS NULL OR p.membershipType = :membershipType) AND " +
            "(:active IS NULL OR p.active = :active) AND " +
-           "(:isDigital IS NULL OR p.isDigital = :isDigital) AND " +
+           "(:autoRenewal IS NULL OR p.autoRenewal = :autoRenewal) AND " +
            "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
-           "(:maxPrice IS NULL OR p.price <= :maxPrice)")
+           "(:maxPrice IS NULL OR p.price <= :maxPrice) AND " +
+           "(:minDuration IS NULL OR p.durationDays >= :minDuration) AND " +
+           "(:maxDuration IS NULL OR p.durationDays <= :maxDuration)")
     Page<Product> findByMultipleCriteria(
             @Param("branchId") Long branchId,
             @Param("category") String category,
-            @Param("brand") String brand,
+            @Param("membershipType") String membershipType,
             @Param("active") Boolean active,
-            @Param("isDigital") Boolean isDigital,
+            @Param("autoRenewal") Boolean autoRenewal,
             @Param("minPrice") BigDecimal minPrice,
             @Param("maxPrice") BigDecimal maxPrice,
+            @Param("minDuration") Integer minDuration,
+            @Param("maxDuration") Integer maxDuration,
             Pageable pageable);
 }
