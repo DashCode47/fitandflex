@@ -13,6 +13,7 @@ POST /api/test/radar-webhook
 - **Método**: POST
 - **Autenticación**: No requiere autenticación
 - **Respuesta**: Devuelve toda la información capturada del webhook
+- **Almacenamiento**: Se guarda en memoria para monitoreo
 
 ### 2. Verificar Estado (GET)
 ```
@@ -20,9 +21,34 @@ GET /api/test/radar-webhook
 ```
 - **Propósito**: Verificar que el servicio está funcionando
 - **Método**: GET
-- **Respuesta**: Estado del servicio
+- **Respuesta**: Estado del servicio + contador de webhooks recibidos
 
-### 3. Simulación (POST)
+### 3. Historial de Webhooks (GET)
+```
+GET /api/test/radar-webhook/history
+```
+- **Propósito**: Ver todos los webhooks recibidos
+- **Método**: GET
+- **Respuesta**: Lista de los últimos 100 webhooks recibidos
+
+### 4. Webhook Específico (GET)
+```
+GET /api/test/radar-webhook/history/{webhookId}
+```
+- **Propósito**: Ver detalles de un webhook específico
+- **Método**: GET
+- **Parámetro**: webhookId (ID único del webhook)
+- **Respuesta**: Detalles completos del webhook
+
+### 5. Limpiar Historial (DELETE)
+```
+DELETE /api/test/radar-webhook/history
+```
+- **Propósito**: Limpiar el historial de webhooks almacenados
+- **Método**: DELETE
+- **Respuesta**: Confirmación de limpieza
+
+### 6. Simulación (POST)
 ```
 POST /api/test/radar-webhook/simulate
 ```
@@ -42,12 +68,82 @@ El webhook captura **TODA** la información que Radar envía:
 5. **Parámetros de Query**: Si los hay
 6. **Información Adicional**: User-Agent, timestamps, etc.
 
-## Logs
+## 🔍 Monitoreo de Webhooks
 
-Todos los webhooks recibidos se registran en los logs con el prefijo:
+### Formas de Verificar si Radar está Disparando el Webhook
+
+#### 1. **Verificar Estado del Servicio**
+```bash
+GET /api/test/radar-webhook
+```
+Respuesta incluye:
+- Estado del servicio
+- **Total de webhooks recibidos** (contador en tiempo real)
+
+#### 2. **Ver Historial de Webhooks**
+```bash
+GET /api/test/radar-webhook/history
+```
+Muestra todos los webhooks recibidos con:
+- ID único de cada webhook
+- Timestamp de recepción
+- IP del remitente
+- Contenido completo del webhook
+
+#### 3. **Ver Webhook Específico**
+```bash
+GET /api/test/radar-webhook/history/{webhookId}
+```
+Para ver detalles completos de un webhook específico.
+
+#### 4. **Logs en Tiempo Real**
+Todos los webhooks recibidos se registran en los logs con:
 ```
 === WEBHOOK DE RADAR RECIBIDO ===
+Webhook ID: webhook_1705312345678
+Timestamp: 2024-01-15T10:30:00
+Remote IP: 192.168.1.100
+Headers recibidos: {...}
+Body raw recibido: {...}
+Webhook almacenado con ID: webhook_1705312345678
+Total webhooks recibidos: 5
+=== FIN WEBHOOK DE RADAR ===
 ```
+
+#### 5. **Comandos para Monitorear Logs**
+
+**En desarrollo local:**
+```bash
+# Ver logs en tiempo real
+tail -f logs/application.log | grep "WEBHOOK DE RADAR"
+
+# Ver solo los webhooks recibidos
+grep "WEBHOOK DE RADAR" logs/application.log
+```
+
+**En producción (si tienes acceso al servidor):**
+```bash
+# Ver logs en tiempo real
+tail -f /var/log/application.log | grep "WEBHOOK DE RADAR"
+
+# Ver webhooks de las últimas 24 horas
+grep "WEBHOOK DE RADAR" /var/log/application.log | grep "$(date +%Y-%m-%d)"
+```
+
+### 📊 Indicadores de que Radar está Funcionando
+
+1. **Contador Incrementa**: El endpoint `/api/test/radar-webhook` muestra `totalWebhooksReceived > 0`
+2. **Logs Aparecen**: Se ven mensajes con `=== WEBHOOK DE RADAR RECIBIDO ===`
+3. **Historial se Llena**: `/api/test/radar-webhook/history` muestra webhooks recibidos
+4. **IPs de Radar**: Los webhooks vienen de IPs conocidas de Radar
+
+### 🚨 Solución de Problemas
+
+**Si no recibes webhooks:**
+1. Verifica que el endpoint esté configurado correctamente en Radar
+2. Revisa que la URL sea accesible públicamente
+3. Verifica que no haya firewall bloqueando las requests
+4. Comprueba los logs de errores de la aplicación
 
 ## Configuración en Radar
 

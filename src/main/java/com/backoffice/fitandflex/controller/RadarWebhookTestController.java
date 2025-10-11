@@ -14,6 +14,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Controlador temporal para probar webhooks de Radar
@@ -27,6 +30,10 @@ import java.util.Map;
 public class RadarWebhookTestController {
 
     private final ObjectMapper objectMapper;
+    
+    // Almacenar webhooks recibidos en memoria para monitoreo
+    private final Map<String, Map<String, Object>> webhookHistory = new ConcurrentHashMap<>();
+    private final List<Map<String, Object>> webhookLog = new ArrayList<>();
 
     /**
      * Endpoint para recibir webhooks de Radar
@@ -41,8 +48,13 @@ public class RadarWebhookTestController {
             @RequestBody(required = false) String rawBody,
             HttpServletRequest request) {
         
+        String webhookId = "webhook_" + System.currentTimeMillis();
+        LocalDateTime timestamp = LocalDateTime.now();
+        
         log.info("=== WEBHOOK DE RADAR RECIBIDO ===");
-        log.info("Timestamp: {}", LocalDateTime.now());
+        log.info("Webhook ID: {}", webhookId);
+        log.info("Timestamp: {}", timestamp);
+        log.info("Remote IP: {}", request.getRemoteAddr());
         
         // Crear respuesta con toda la información capturada
         Map<String, Object> response = new HashMap<>();
@@ -111,9 +123,23 @@ public class RadarWebhookTestController {
             
             response.put("success", true);
             response.put("message", "Webhook de Radar recibido y procesado exitosamente");
-            response.put("timestamp", LocalDateTime.now().toString());
+            response.put("webhookId", webhookId);
+            response.put("timestamp", timestamp.toString());
             response.put("capturedData", capturedData);
             
+            // Almacenar en memoria para monitoreo
+            capturedData.put("webhookId", webhookId);
+            capturedData.put("timestamp", timestamp.toString());
+            webhookHistory.put(webhookId, capturedData);
+            webhookLog.add(capturedData);
+            
+            // Mantener solo los últimos 100 webhooks en memoria
+            if (webhookLog.size() > 100) {
+                webhookLog.remove(0);
+            }
+            
+            log.info("Webhook almacenado con ID: {}", webhookId);
+            log.info("Total webhooks recibidos: {}", webhookLog.size());
             log.info("=== FIN WEBHOOK DE RADAR ===");
             
             return ResponseEntity.ok(response);
@@ -146,7 +172,79 @@ public class RadarWebhookTestController {
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("endpoint", "/api/test/radar-webhook");
         response.put("method", "POST");
+        response.put("totalWebhooksReceived", webhookLog.size());
         response.put("note", "Este es un servicio temporal para pruebas - ELIMINAR DESPUÉS");
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Endpoint para ver el historial de webhooks recibidos
+     */
+    @GetMapping("/history")
+    @Operation(
+        summary = "Ver historial de webhooks",
+        description = "Muestra los últimos webhooks recibidos de Radar"
+    )
+    public ResponseEntity<Map<String, Object>> getWebhookHistory() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Historial de webhooks obtenido");
+        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("totalWebhooks", webhookLog.size());
+        response.put("webhooks", webhookLog);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Endpoint para ver un webhook específico por ID
+     */
+    @GetMapping("/history/{webhookId}")
+    @Operation(
+        summary = "Ver webhook específico",
+        description = "Muestra los detalles de un webhook específico por su ID"
+    )
+    public ResponseEntity<Map<String, Object>> getWebhookById(@PathVariable String webhookId) {
+        Map<String, Object> webhook = webhookHistory.get(webhookId);
+        
+        if (webhook == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Webhook no encontrado");
+            response.put("webhookId", webhookId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+        }
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Webhook encontrado");
+        response.put("webhookId", webhookId);
+        response.put("webhook", webhook);
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Endpoint para limpiar el historial de webhooks
+     */
+    @DeleteMapping("/history")
+    @Operation(
+        summary = "Limpiar historial de webhooks",
+        description = "Elimina todo el historial de webhooks almacenado en memoria"
+    )
+    public ResponseEntity<Map<String, Object>> clearWebhookHistory() {
+        int totalCleared = webhookLog.size();
+        webhookHistory.clear();
+        webhookLog.clear();
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Historial de webhooks limpiado");
+        response.put("totalCleared", totalCleared);
+        response.put("timestamp", LocalDateTime.now().toString());
+        
+        log.info("Historial de webhooks limpiado. Total eliminados: {}", totalCleared);
         
         return ResponseEntity.ok(response);
     }
