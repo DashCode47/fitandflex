@@ -29,7 +29,7 @@ public class PaymentDTO {
           "amount": 50.00,
           "currency": "USD",
           "paymentMethod": "CASH",
-          "description": "Pago por clase de yoga",
+          "description": "Pago por clase de Octubre",
           "userId": 1,
           "reservationId": 1
         }
@@ -66,7 +66,7 @@ public class PaymentDTO {
         @Size(max = 500, message = "La descripción no puede exceder 500 caracteres")
         @io.swagger.v3.oas.annotations.media.Schema(
             description = "Descripción del pago",
-            example = "Pago por clase de yoga"
+            example = "Pago por clase de Octubre"
         )
         private String description;
 
@@ -110,7 +110,7 @@ public class PaymentDTO {
         example = """
         {
           "status": "COMPLETED",
-          "description": "Pago completado exitosamente",
+          "description": "Pago por clase de Octubre",
           "transactionId": "TXN123456789",
           "gatewayReference": "GW_REF_123456"
         }
@@ -127,7 +127,7 @@ public class PaymentDTO {
         @Size(max = 500, message = "La descripción no puede exceder 500 caracteres")
         @io.swagger.v3.oas.annotations.media.Schema(
             description = "Descripción actualizada del pago",
-            example = "Pago completado exitosamente"
+            example = "Pago por clase de Octubre"
         )
         private String description;
 
@@ -172,7 +172,7 @@ public class PaymentDTO {
         example = """
         {
           "refundAmount": 25.00,
-          "refundReason": "Cancelación de clase"
+          "refundReason": "Cancelación de clase de Octubre"
         }
         """
     )
@@ -191,7 +191,7 @@ public class PaymentDTO {
         @Size(max = 500, message = "La razón del reembolso no puede exceder 500 caracteres")
         @io.swagger.v3.oas.annotations.media.Schema(
             description = "Razón del reembolso",
-            example = "Cancelación de clase"
+            example = "Cancelación de clase de Octubre"
         )
         private String refundReason;
     }
@@ -215,7 +215,7 @@ public class PaymentDTO {
           "paymentMethod": "CASH",
           "transactionId": "TXN123456789",
           "gatewayReference": "GW_REF_123456",
-          "description": "Pago por clase de yoga",
+          "description": "Pago por clase de Octubre",
           "refundAmount": null,
           "refundDate": null,
           "refundReason": null,
