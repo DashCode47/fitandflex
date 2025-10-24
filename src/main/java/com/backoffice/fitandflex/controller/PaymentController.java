@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -32,11 +33,20 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/payments")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Payments", description = "Endpoints para gestión de pagos")
 @SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
 
     private final PaymentService paymentService;
+    
+    /**
+     * Helper method para crear Pageable
+     */
+    private Pageable createPageable(int page, int size, String sort) {
+        return org.springframework.data.domain.PageRequest.of(page, size, 
+            org.springframework.data.domain.Sort.by(sort));
+    }
 
     /**
      * Crear nuevo pago
@@ -76,7 +86,9 @@ public class PaymentController {
     public ResponseEntity<CommonDto.SuccessResponse<PaymentDTO.Response>> createPayment(
             @Valid @RequestBody PaymentDTO.CreateRequest request) {
         
+        log.info("Creando nuevo pago para usuario {} con monto {}", request.getUserId(), request.getAmount());
         PaymentDTO.Response payment = paymentService.createPayment(request);
+        log.info("Pago creado exitosamente con ID: {}", payment.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CommonDto.SuccessResponse.<PaymentDTO.Response>builder()
@@ -117,9 +129,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getAllPayments(pageable);
         return ResponseEntity.ok(payments);
@@ -137,9 +147,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getAllPayments(pageable);
         return ResponseEntity.ok(payments);
@@ -212,9 +220,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByUser(userId, pageable);
         return ResponseEntity.ok(payments);
@@ -234,9 +240,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByReservation(reservationId, pageable);
         return ResponseEntity.ok(payments);
@@ -256,9 +260,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByStatus(status, pageable);
         return ResponseEntity.ok(payments);
@@ -278,9 +280,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByPaymentMethod(paymentMethod, pageable);
         return ResponseEntity.ok(payments);
@@ -300,9 +300,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByBranch(branchId, pageable);
         return ResponseEntity.ok(payments);
@@ -323,9 +321,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByDateRange(startDate, endDate, pageable);
         return ResponseEntity.ok(payments);
@@ -346,9 +342,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsByAmountRange(minAmount, maxAmount, pageable);
         return ResponseEntity.ok(payments);
@@ -367,9 +361,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.getPaymentsWithRefunds(pageable);
         return ResponseEntity.ok(payments);
@@ -389,9 +381,7 @@ public class PaymentController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<PaymentDTO.Response> payments = paymentService.searchPaymentsByDescription(description, pageable);
         return ResponseEntity.ok(payments);
@@ -425,7 +415,9 @@ public class PaymentController {
             @RequestParam(required = false) String transactionId,
             @RequestParam(required = false) String gatewayReference) {
         
+        log.info("Marcando pago {} como completado", id);
         PaymentDTO.Response payment = paymentService.markPaymentAsCompleted(id, transactionId, gatewayReference);
+        log.info("Pago {} marcado como completado exitosamente", id);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<PaymentDTO.Response>builder()
                 .success(true)
@@ -443,7 +435,9 @@ public class PaymentController {
             @PathVariable Long id,
             @RequestParam String failureReason) {
         
+        log.info("Marcando pago {} como fallido. Razón: {}", id, failureReason);
         PaymentDTO.Response payment = paymentService.markPaymentAsFailed(id, failureReason);
+        log.info("Pago {} marcado como fallido exitosamente", id);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<PaymentDTO.Response>builder()
                 .success(true)
@@ -461,7 +455,9 @@ public class PaymentController {
             @PathVariable Long id,
             @Valid @RequestBody PaymentDTO.RefundRequest request) {
         
+        log.info("Procesando reembolso de ${} para pago {}", request.getRefundAmount(), id);
         PaymentDTO.Response payment = paymentService.processRefund(id, request);
+        log.info("Reembolso procesado exitosamente para pago {}", id);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<PaymentDTO.Response>builder()
                 .success(true)
@@ -478,7 +474,9 @@ public class PaymentController {
     public ResponseEntity<CommonDto.SuccessResponse<Void>> deletePayment(
             @PathVariable Long id) {
         
+        log.info("Eliminando pago {}", id);
         paymentService.deletePayment(id);
+        log.info("Pago {} eliminado exitosamente", id);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<Void>builder()
                 .success(true)

@@ -209,13 +209,40 @@ CREATE INDEX IF NOT EXISTS idx_product_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_product_active ON products(active);
 
 -- ===========================================
+-- CREATE USER MEMBERSHIPS TABLE
+-- ===========================================
+CREATE TABLE IF NOT EXISTS user_memberships (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    start_date TIMESTAMP NOT NULL,
+    end_date TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    notes VARCHAR(1000),
+    assigned_by BIGINT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_user_membership_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_user_membership_product FOREIGN KEY (product_id) REFERENCES products(id),
+    CONSTRAINT fk_user_membership_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id)
+);
+
+-- Create indexes on user_memberships
+CREATE INDEX IF NOT EXISTS idx_user_membership_user ON user_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_membership_product ON user_memberships(product_id);
+CREATE INDEX IF NOT EXISTS idx_user_membership_status ON user_memberships(status);
+CREATE INDEX IF NOT EXISTS idx_user_membership_active ON user_memberships(active);
+CREATE INDEX IF NOT EXISTS idx_user_membership_dates ON user_memberships(start_date, end_date);
+
+-- ===========================================
 -- INSERT DEFAULT ROLES
 -- ===========================================
 INSERT INTO roles (name, description) VALUES
 ('SUPER_ADMIN', 'Super administrador del sistema con acceso completo'),
 ('BRANCH_ADMIN', 'Administrador de sucursal con acceso limitado a su sucursal'),
 ('USER', 'Usuario regular del sistema'),
-('INSTRUCTOR', 'Instructor de yoga con acceso a sus clases')
+('INSTRUCTOR', 'Instructor de pilates con acceso a sus clases')
 ON CONFLICT (name) DO NOTHING;
 
 -- ===========================================
@@ -246,3 +273,4 @@ CREATE TRIGGER update_schedules_updated_at BEFORE UPDATE ON schedules FOR EACH R
 CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_user_memberships_updated_at BEFORE UPDATE ON user_memberships FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

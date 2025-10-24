@@ -34,6 +34,24 @@ import java.util.Map;
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
+    
+    /**
+     * Helper method para crear Pageable con validaciones
+     */
+    private org.springframework.data.domain.Pageable createPageable(int page, int size, String sort, String direction) {
+        // Validar parámetros
+        if (size > 100) size = 100;
+        if (size < 1) size = 10;
+        if (page < 0) page = 0;
+        
+        org.springframework.data.domain.Sort.Direction sortDirection = 
+            "desc".equalsIgnoreCase(direction) ? 
+            org.springframework.data.domain.Sort.Direction.DESC : 
+            org.springframework.data.domain.Sort.Direction.ASC;
+            
+        return org.springframework.data.domain.PageRequest.of(page, size, 
+            org.springframework.data.domain.Sort.by(sortDirection, sort));
+    }
 
     @Operation(
         summary = "Crear nuevo horario",
@@ -133,26 +151,7 @@ public class ScheduleController {
         log.info("Obteniendo todos los horarios con paginación - page: {}, size: {}, sort: {}, direction: {}", 
                 page, size, sort, direction);
         
-        // Validar parámetros
-        if (size > 100) {
-            size = 100; // Limitar a máximo 100 elementos
-        }
-        if (size < 1) {
-            size = 10; // Mínimo 1 elemento
-        }
-        if (page < 0) {
-            page = 0; // Página mínima es 0
-        }
-        
-        // Crear Pageable con parámetros validados
-        org.springframework.data.domain.Sort.Direction sortDirection = 
-            "desc".equalsIgnoreCase(direction) ? 
-            org.springframework.data.domain.Sort.Direction.DESC : 
-            org.springframework.data.domain.Sort.Direction.ASC;
-            
-        org.springframework.data.domain.Pageable pageable = 
-            org.springframework.data.domain.PageRequest.of(page, size, 
-                org.springframework.data.domain.Sort.by(sortDirection, sort));
+        org.springframework.data.domain.Pageable pageable = createPageable(page, size, sort, direction);
         
         Page<ScheduleDTO.Response> response = scheduleService.getAllSchedules(pageable);
         
@@ -457,12 +456,17 @@ public class ScheduleController {
     })
     @PutMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
-    public ResponseEntity<Map<String, String>> deactivateSchedule(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deactivateSchedule(@PathVariable Long id) {
         log.info("Desactivando horario: {}", id);
         
         scheduleService.deactivateSchedule(id);
+        log.info("Horario desactivado exitosamente: {}", id);
         
-        return ResponseEntity.ok(Map.of("message", "Horario desactivado exitosamente"));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Horario desactivado exitosamente",
+            "scheduleId", id
+        ));
     }
 
     @Operation(
@@ -485,12 +489,17 @@ public class ScheduleController {
     })
     @PutMapping("/{id}/activate")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
-    public ResponseEntity<Map<String, String>> activateSchedule(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> activateSchedule(@PathVariable Long id) {
         log.info("Activando horario: {}", id);
         
         scheduleService.activateSchedule(id);
+        log.info("Horario activado exitosamente: {}", id);
         
-        return ResponseEntity.ok(Map.of("message", "Horario activado exitosamente"));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Horario activado exitosamente",
+            "scheduleId", id
+        ));
     }
 
     @Operation(
@@ -513,12 +522,17 @@ public class ScheduleController {
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
-    public ResponseEntity<Map<String, String>> deleteSchedule(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deleteSchedule(@PathVariable Long id) {
         log.info("Eliminando horario: {}", id);
         
         scheduleService.deleteSchedule(id);
+        log.info("Horario eliminado exitosamente: {}", id);
         
-        return ResponseEntity.ok(Map.of("message", "Horario eliminado exitosamente"));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Horario eliminado exitosamente",
+            "scheduleId", id
+        ));
     }
 
     @Operation(

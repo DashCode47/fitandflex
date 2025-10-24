@@ -33,6 +33,24 @@ import java.util.Map;
 public class ClassController {
 
     private final ClassService classService;
+    
+    /**
+     * Helper method para crear Pageable con validaciones
+     */
+    private org.springframework.data.domain.Pageable createPageable(int page, int size, String sort, String direction) {
+        // Validar parámetros
+        if (size > 100) size = 100;
+        if (size < 1) size = 10;
+        if (page < 0) page = 0;
+        
+        org.springframework.data.domain.Sort.Direction sortDirection = 
+            "desc".equalsIgnoreCase(direction) ? 
+            org.springframework.data.domain.Sort.Direction.DESC : 
+            org.springframework.data.domain.Sort.Direction.ASC;
+            
+        return org.springframework.data.domain.PageRequest.of(page, size, 
+            org.springframework.data.domain.Sort.by(sortDirection, sort));
+    }
 
     @Operation(
         summary = "Crear nueva clase",
@@ -135,26 +153,7 @@ public class ClassController {
         log.info("Obteniendo todas las clases con paginación - page: {}, size: {}, sort: {}, direction: {}", 
                 page, size, sort, direction);
         
-        // Validar parámetros
-        if (size > 100) {
-            size = 100; // Limitar a máximo 100 elementos
-        }
-        if (size < 1) {
-            size = 10; // Mínimo 1 elemento
-        }
-        if (page < 0) {
-            page = 0; // Página mínima es 0
-        }
-        
-        // Crear Pageable con parámetros validados
-        org.springframework.data.domain.Sort.Direction sortDirection = 
-            "desc".equalsIgnoreCase(direction) ? 
-            org.springframework.data.domain.Sort.Direction.DESC : 
-            org.springframework.data.domain.Sort.Direction.ASC;
-            
-        org.springframework.data.domain.Pageable pageable = 
-            org.springframework.data.domain.PageRequest.of(page, size, 
-                org.springframework.data.domain.Sort.by(sortDirection, sort));
+        org.springframework.data.domain.Pageable pageable = createPageable(page, size, sort, direction);
         
         Page<ClassDTO.Response> response = classService.getAllClasses(pageable);
         
@@ -367,12 +366,16 @@ public class ClassController {
     })
     @PutMapping("/{id}/deactivate")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
-    public ResponseEntity<Map<String, String>> deactivateClass(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deactivateClass(@PathVariable Long id) {
         log.info("Desactivando clase: {}", id);
         
         classService.deactivateClass(id);
         
-        return ResponseEntity.ok(Map.of("message", "Clase desactivada exitosamente"));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Clase desactivada exitosamente",
+            "classId", id
+        ));
     }
 
     @Operation(
@@ -395,12 +398,16 @@ public class ClassController {
     })
     @PutMapping("/{id}/activate")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
-    public ResponseEntity<Map<String, String>> activateClass(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> activateClass(@PathVariable Long id) {
         log.info("Activando clase: {}", id);
         
         classService.activateClass(id);
         
-        return ResponseEntity.ok(Map.of("message", "Clase activada exitosamente"));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Clase activada exitosamente",
+            "classId", id
+        ));
     }
 
     @Operation(
@@ -423,12 +430,16 @@ public class ClassController {
     })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
-    public ResponseEntity<Map<String, String>> deleteClass(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> deleteClass(@PathVariable Long id) {
         log.info("Eliminando clase: {}", id);
         
         classService.deleteClass(id);
         
-        return ResponseEntity.ok(Map.of("message", "Clase eliminada exitosamente"));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Clase eliminada exitosamente",
+            "classId", id
+        ));
     }
 
     @Operation(
@@ -446,12 +457,16 @@ public class ClassController {
         )
     })
     @GetMapping("/branch/{branchId}/count")
-    public ResponseEntity<Map<String, Long>> countActiveClassesByBranch(@PathVariable Long branchId) {
+    public ResponseEntity<Map<String, Object>> countActiveClassesByBranch(@PathVariable Long branchId) {
         log.info("Contando clases activas de la sucursal: {}", branchId);
         
         Long count = classService.countActiveClassesByBranch(branchId);
         
-        return ResponseEntity.ok(Map.of("count", count));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "count", count,
+            "branchId", branchId
+        ));
     }
 
     @Operation(
@@ -469,12 +484,16 @@ public class ClassController {
         )
     })
     @GetMapping("/{id}/exists")
-    public ResponseEntity<Map<String, Boolean>> classExists(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> classExists(@PathVariable Long id) {
         log.info("Verificando si clase existe: {}", id);
         
         boolean exists = classService.classExists(id);
         
-        return ResponseEntity.ok(Map.of("exists", exists));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "exists", exists,
+            "classId", id
+        ));
     }
 
     @Operation(
@@ -492,11 +511,15 @@ public class ClassController {
         )
     })
     @GetMapping("/{id}/active")
-    public ResponseEntity<Map<String, Boolean>> isClassActive(@PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> isClassActive(@PathVariable Long id) {
         log.info("Verificando si clase está activa: {}", id);
         
         boolean active = classService.isClassActive(id);
         
-        return ResponseEntity.ok(Map.of("active", active));
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "active", active,
+            "classId", id
+        ));
     }
 }

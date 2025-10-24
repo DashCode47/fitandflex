@@ -8,8 +8,12 @@ import lombok.Data;
 public class AuthResponse {
     private String token;
     private String tokenType; // "Bearer"
-    private Long expiresIn;
+    private Long expiresIn; // en segundos
     private Long userId;
+    private String email;
+    private String name;
     private String role;
     private Long branchId;
+    private String branchName;
+    private Boolean active;
 }

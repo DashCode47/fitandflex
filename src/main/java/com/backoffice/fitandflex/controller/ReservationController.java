@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -30,11 +31,20 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/reservations")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Reservations", description = "Endpoints para gestión de reservas")
 @SecurityRequirement(name = "bearerAuth")
 public class ReservationController {
 
     private final ReservationService reservationService;
+    
+    /**
+     * Helper method para crear Pageable
+     */
+    private Pageable createPageable(int page, int size, String sort) {
+        return org.springframework.data.domain.PageRequest.of(page, size, 
+            org.springframework.data.domain.Sort.by(sort));
+    }
 
     /**
      * Crear nueva reserva
@@ -74,7 +84,9 @@ public class ReservationController {
     public ResponseEntity<CommonDto.SuccessResponse<ReservationDTO.Response>> createReservation(
             @Valid @RequestBody ReservationDTO.CreateRequest request) {
         
+        log.info("Creando nueva reserva para usuario {} en horario {}", request.getUserId(), request.getScheduleId());
         ReservationDTO.Response reservation = reservationService.createReservation(request);
+        log.info("Reserva creada exitosamente con ID: {}", reservation.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CommonDto.SuccessResponse.<ReservationDTO.Response>builder()
@@ -115,9 +127,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getAllReservations(pageable);
         return ResponseEntity.ok(reservations);
@@ -135,9 +145,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getAllReservations(pageable);
         return ResponseEntity.ok(reservations);
@@ -210,9 +218,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getReservationsByUser(userId, pageable);
         return ResponseEntity.ok(reservations);
@@ -232,9 +238,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getReservationsBySchedule(scheduleId, pageable);
         return ResponseEntity.ok(reservations);
@@ -254,9 +258,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getReservationsByStatus(status, pageable);
         return ResponseEntity.ok(reservations);
@@ -276,9 +278,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getReservationsByBranch(branchId, pageable);
         return ResponseEntity.ok(reservations);
@@ -298,9 +298,7 @@ public class ReservationController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, 
-            org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<ReservationDTO.Response> reservations = reservationService.getReservationsByClass(classId, pageable);
         return ResponseEntity.ok(reservations);
@@ -364,7 +362,9 @@ public class ReservationController {
     public ResponseEntity<CommonDto.SuccessResponse<ReservationDTO.Response>> cancelReservation(
             @PathVariable Long id) {
         
+        log.info("Cancelando reserva con ID: {}", id);
         ReservationDTO.Response reservation = reservationService.cancelReservation(id);
+        log.info("Reserva cancelada exitosamente con ID: {}", reservation.getId());
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<ReservationDTO.Response>builder()
                 .success(true)
@@ -381,7 +381,9 @@ public class ReservationController {
     public ResponseEntity<CommonDto.SuccessResponse<ReservationDTO.Response>> markAttendance(
             @PathVariable Long id) {
         
+        log.info("Marcando asistencia para reserva con ID: {}", id);
         ReservationDTO.Response reservation = reservationService.markAttendance(id);
+        log.info("Asistencia marcada exitosamente para reserva con ID: {}", reservation.getId());
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<ReservationDTO.Response>builder()
                 .success(true)
@@ -398,7 +400,9 @@ public class ReservationController {
     public ResponseEntity<CommonDto.SuccessResponse<ReservationDTO.Response>> markNoShow(
             @PathVariable Long id) {
         
+        log.info("Marcando no asistencia para reserva con ID: {}", id);
         ReservationDTO.Response reservation = reservationService.markNoShow(id);
+        log.info("No asistencia marcada exitosamente para reserva con ID: {}", reservation.getId());
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<ReservationDTO.Response>builder()
                 .success(true)
@@ -415,7 +419,9 @@ public class ReservationController {
     public ResponseEntity<CommonDto.SuccessResponse<Void>> deleteReservation(
             @PathVariable Long id) {
         
+        log.info("Eliminando reserva con ID: {}", id);
         reservationService.deleteReservation(id);
+        log.info("Reserva eliminada exitosamente con ID: {}", id);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<Void>builder()
                 .success(true)

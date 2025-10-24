@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * User entity: representa a un usuario del sistema (Super Admin, Admin Sucursal, Usuario, Instructor, etc.)
@@ -51,6 +52,9 @@ public class User {
 
     @Column(length = 10)
     private String gender; // Opcional: "M", "F", "O"
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate; // Fecha de nacimiento
 
     @Column(length = 255)
     private String profileImageUrl;

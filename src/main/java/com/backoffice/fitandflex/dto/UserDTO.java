@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * DTOs para la entidad User
@@ -31,6 +32,7 @@ public class UserDTO {
           "password": "password123",
           "phone": "+593-99-1234567",
           "gender": "M",
+          "birthDate": "1990-05-15",
           "active": true,
           "roleName": "USER",
           "branchId": 1
@@ -78,6 +80,12 @@ public class UserDTO {
         private String gender;
 
         @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Fecha de nacimiento del usuario (formato: yyyy-MM-dd)",
+            example = "1990-05-15"
+        )
+        private LocalDate birthDate;
+
+        @io.swagger.v3.oas.annotations.media.Schema(
             description = "Estado del usuario (activo/inactivo)",
             example = "true"
         )
@@ -120,6 +128,8 @@ public class UserDTO {
         @Pattern(regexp = "^[MF]$", message = "El género debe ser M o F")
         private String gender;
 
+        private LocalDate birthDate;
+
         private Boolean active;
 
         private String roleName;
@@ -141,6 +151,7 @@ public class UserDTO {
         private String email;
         private String phone;
         private String gender;
+        private LocalDate birthDate;
         private Boolean active;
         private RoleDTO role;
         private BranchDto.Response branch;
@@ -154,6 +165,7 @@ public class UserDTO {
                     .email(user.getEmail())
                     .phone(user.getPhone())
                     .gender(user.getGender())
+                    .birthDate(user.getBirthDate())
                     .active(user.getActive())
                     .role(user.getRole() != null ? RoleDTO.fromEntity(user.getRole()) : null)
                     .branch(user.getBranch() != null ? BranchDto.Response.fromEntity(user.getBranch()) : null)

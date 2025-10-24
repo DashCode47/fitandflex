@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,11 +32,19 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Memberships", description = "Endpoints para gestión de membresías")
 @SecurityRequirement(name = "bearerAuth")
 public class ProductController {
 
     private final ProductService productService;
+    
+    /**
+     * Helper method para crear Pageable
+     */
+    private Pageable createPageable(int page, int size, String sort) {
+        return PageRequest.of(page, size, Sort.by(sort));
+    }
 
     /**
      * Crear nueva membresía
@@ -75,7 +84,9 @@ public class ProductController {
     public ResponseEntity<CommonDto.SuccessResponse<ProductDTO.Response>> createProduct(
             @Valid @RequestBody ProductDTO.CreateRequest request) {
 
+        log.info("Creando nueva membresía '{}' para sucursal {}", request.getName(), request.getBranchId());
         ProductDTO.Response product = productService.createProduct(request);
+        log.info("Membresía creada exitosamente con ID: {}", product.getId());
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CommonDto.SuccessResponse.<ProductDTO.Response>builder()
@@ -116,7 +127,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getAllProducts(pageable);
         return ResponseEntity.ok(products);
     }
@@ -133,7 +144,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getAllProducts(pageable);
         return ResponseEntity.ok(products);
     }
@@ -151,7 +162,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getActiveProducts(pageable);
         return ResponseEntity.ok(products);
     }
@@ -208,7 +219,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsByBranch(branchId, pageable);
         return ResponseEntity.ok(products);
     }
@@ -227,7 +238,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsByCategory(category, pageable);
         return ResponseEntity.ok(products);
     }
@@ -246,7 +257,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsByMembershipType(membershipType, pageable);
         return ResponseEntity.ok(products);
     }
@@ -268,7 +279,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsByPriceRange(minPrice, maxPrice, pageable);
         return ResponseEntity.ok(products);
     }
@@ -287,7 +298,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsByDuration(durationDays, pageable);
         return ResponseEntity.ok(products);
     }
@@ -307,7 +318,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsWithTrialPeriod(minTrialDays, pageable);
         return ResponseEntity.ok(products);
     }
@@ -325,7 +336,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.getProductsWithAutoRenewal(pageable);
         return ResponseEntity.ok(products);
     }
@@ -345,7 +356,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.searchProductsByName(query, pageable);
         return ResponseEntity.ok(products);
     }
@@ -365,7 +376,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.searchProductsByBenefits(benefit, pageable);
         return ResponseEntity.ok(products);
     }
@@ -385,7 +396,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.searchProductsByFeatures(feature, pageable);
         return ResponseEntity.ok(products);
     }
@@ -421,7 +432,7 @@ public class ProductController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false)
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         Page<ProductDTO.Response> products = productService.searchProductsByCriteria(
                 branchId, category, membershipType, active, autoRenewal, 
                 minPrice, maxPrice, minDuration, maxDuration, pageable);
@@ -437,7 +448,9 @@ public class ProductController {
             @PathVariable Long id,
             @Valid @RequestBody ProductDTO.UpdateRequest request) {
 
+        log.info("Actualizando membresía con ID: {}", id);
         ProductDTO.Response product = productService.updateProduct(id, request);
+        log.info("Membresía actualizada exitosamente con ID: {}", product.getId());
 
         return ResponseEntity.ok(CommonDto.SuccessResponse.<ProductDTO.Response>builder()
                 .success(true)
@@ -454,7 +467,9 @@ public class ProductController {
     public ResponseEntity<CommonDto.SuccessResponse<Void>> deleteProduct(
             @PathVariable Long id) {
 
+        log.info("Eliminando membresía con ID: {}", id);
         productService.deleteProduct(id);
+        log.info("Membresía eliminada exitosamente con ID: {}", id);
 
         return ResponseEntity.ok(CommonDto.SuccessResponse.<Void>builder()
                 .success(true)

@@ -1,12 +1,23 @@
 package com.backoffice.fitandflex.service;
 
 import com.backoffice.fitandflex.dto.UserDTO;
+import com.backoffice.fitandflex.dto.UserClassDTO;
+import com.backoffice.fitandflex.dto.UserProductDTO;
 import com.backoffice.fitandflex.entity.Branch;
 import com.backoffice.fitandflex.entity.Role;
 import com.backoffice.fitandflex.entity.User;
+import com.backoffice.fitandflex.entity.Reservation;
+import com.backoffice.fitandflex.entity.Payment;
+import com.backoffice.fitandflex.entity.Schedule;
+import com.backoffice.fitandflex.entity.ReservationStatus;
+import com.backoffice.fitandflex.entity.Payment.PaymentStatus;
+import com.backoffice.fitandflex.entity.Payment.PaymentMethod;
 import com.backoffice.fitandflex.repository.BranchRepository;
 import com.backoffice.fitandflex.repository.RoleRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
+import com.backoffice.fitandflex.repository.ReservationRepository;
+import com.backoffice.fitandflex.repository.PaymentRepository;
+import com.backoffice.fitandflex.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -30,6 +41,9 @@ public class UserService {
     private final BranchRepository branchRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ReservationRepository reservationRepository;
+    private final PaymentRepository paymentRepository;
+    private final ScheduleRepository scheduleRepository;
 
     /**
      * Crear un nuevo usuario
@@ -60,6 +74,7 @@ public class UserService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .phone(request.getPhone())
                 .gender(request.getGender())
+                .birthDate(request.getBirthDate())
                 .active(request.getActive() != null ? request.getActive() : true)
                 .role(role)
                 .branch(branch)
@@ -159,6 +174,9 @@ public class UserService {
         }
         if (request.getGender() != null) {
             user.setGender(request.getGender());
+        }
+        if (request.getBirthDate() != null) {
+            user.setBirthDate(request.getBirthDate());
         }
         if (request.getActive() != null) {
             user.setActive(request.getActive());
@@ -275,5 +293,153 @@ public class UserService {
             log.warn("Error verificando propiedad del usuario: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Obtener clases por ID de usuario
+     */
+    @Transactional(readOnly = true)
+    public List<UserClassDTO.Response> getUserClasses(Long userId) {
+        log.info("Obteniendo clases del usuario: {}", userId);
+        
+        // Validar que el usuario existe
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + userId));
+        
+        // Obtener reservas del usuario
+        List<Reservation> reservations = reservationRepository.findByUserId(userId);
+        
+        return reservations.stream()
+                .map(UserClassDTO.Response::fromReservation)
+                .toList();
+    }
+
+    /**
+     * Obtener productos por ID de usuario
+     */
+    @Transactional(readOnly = true)
+    public List<UserProductDTO.Response> getUserProducts(Long userId) {
+        log.info("Obteniendo productos del usuario: {}", userId);
+        
+        // Validar que el usuario existe
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + userId));
+        
+        // Obtener pagos del usuario
+        List<Payment> payments = paymentRepository.findByUserId(userId);
+        
+        return payments.stream()
+                .map(payment -> {
+                    // Si hay una reserva asociada, intentar obtener el producto
+                    if (payment.getReservation() != null) {
+                        // En el modelo actual no hay relación directa entre clase y producto
+                        // Por ahora retornamos solo la información del pago
+                        return UserProductDTO.Response.fromPayment(payment);
+                    } else {
+                        return UserProductDTO.Response.fromPayment(payment);
+                    }
+                })
+                .toList();
+    }
+
+    /**
+     * Actualizar información de clase de usuario
+     */
+    public UserClassDTO.Response updateUserClass(Long userId, Long reservationId, UserClassDTO.UpdateClassRequest request) {
+        log.info("Actualizando clase del usuario: {} para reserva: {}", userId, reservationId);
+        
+        // Validar que el usuario existe
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + userId));
+        
+        // Obtener la reserva
+        Reservation reservation = reservationRepository.findById(reservationId)
+                .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada: " + reservationId));
+        
+        // Verificar que la reserva pertenece al usuario
+        if (!reservation.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("La reserva no pertenece al usuario especificado");
+        }
+        
+        // Actualizar campos si se proporcionan
+        if (request.getNewScheduleId() != null) {
+            Schedule newSchedule = scheduleRepository.findById(request.getNewScheduleId())
+                    .orElseThrow(() -> new IllegalArgumentException("Horario no encontrado: " + request.getNewScheduleId()));
+            reservation.setSchedule(newSchedule);
+        }
+        
+        if (request.getNewReservationDate() != null) {
+            reservation.setReservationDate(request.getNewReservationDate());
+        }
+        
+        if (request.getNewReservationStatus() != null) {
+            try {
+                ReservationStatus status = ReservationStatus.valueOf(request.getNewReservationStatus());
+                reservation.setStatus(status);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado de reserva inválido: " + request.getNewReservationStatus());
+            }
+        }
+        
+        Reservation updatedReservation = reservationRepository.save(reservation);
+        log.info("Clase del usuario actualizada exitosamente");
+        
+        return UserClassDTO.Response.fromReservation(updatedReservation);
+    }
+
+    /**
+     * Actualizar información de producto de usuario
+     */
+    public UserProductDTO.Response updateUserProduct(Long userId, Long paymentId, UserProductDTO.UpdateProductRequest request) {
+        log.info("Actualizando producto del usuario: {} para pago: {}", userId, paymentId);
+        
+        // Validar que el usuario existe
+        userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + userId));
+        
+        // Obtener el pago
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("Pago no encontrado: " + paymentId));
+        
+        // Verificar que el pago pertenece al usuario
+        if (!payment.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("El pago no pertenece al usuario especificado");
+        }
+        
+        // Actualizar campos si se proporcionan
+        if (request.getNewPaymentAmount() != null) {
+            payment.setAmount(request.getNewPaymentAmount());
+        }
+        
+        if (request.getNewPaymentDate() != null) {
+            payment.setPaymentDate(request.getNewPaymentDate());
+        }
+        
+        if (request.getNewPaymentStatus() != null) {
+            try {
+                PaymentStatus status = PaymentStatus.valueOf(request.getNewPaymentStatus());
+                payment.setStatus(status);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Estado de pago inválido: " + request.getNewPaymentStatus());
+            }
+        }
+        
+        if (request.getNewPaymentMethod() != null) {
+            try {
+                PaymentMethod method = PaymentMethod.valueOf(request.getNewPaymentMethod());
+                payment.setPaymentMethod(method);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Método de pago inválido: " + request.getNewPaymentMethod());
+            }
+        }
+        
+        if (request.getNewPaymentDescription() != null) {
+            payment.setDescription(request.getNewPaymentDescription());
+        }
+        
+        Payment updatedPayment = paymentRepository.save(payment);
+        log.info("Producto del usuario actualizado exitosamente");
+        
+        return UserProductDTO.Response.fromPayment(updatedPayment);
     }
 }

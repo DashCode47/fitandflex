@@ -57,7 +57,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api", "/api/auth/**", "/api/users/test", "/api/branches/test", "/api/reservations/test", "/api/payments/test", "/api/products/test", "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger-ui/index.html", "/webjars/**", "/favicon.ico").permitAll()
+                        .requestMatchers("/", "/api", "/api/auth/login", "/api/auth/logout", "/api/users/test", "/api/branches/test", "/api/reservations/test", "/api/payments/test", "/api/products/test", "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger-ui/index.html", "/webjars/**", "/favicon.ico").permitAll()
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())

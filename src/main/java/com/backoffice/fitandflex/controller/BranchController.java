@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -29,11 +30,20 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/branches")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Branches", description = "Endpoints para gestión de sucursales")
 @SecurityRequirement(name = "bearerAuth")
 public class BranchController {
 
     private final BranchService branchService;
+    
+    /**
+     * Helper method para crear Pageable
+     */
+    private Pageable createPageable(int page, int size, String sort) {
+        return org.springframework.data.domain.PageRequest.of(page, size, 
+            org.springframework.data.domain.Sort.by(sort));
+    }
 
     /**
      * Crear nueva sucursal (Solo SuperAdmin)
@@ -73,7 +83,9 @@ public class BranchController {
     public ResponseEntity<CommonDto.SuccessResponse<BranchDto.Response>> createBranch(
             @Valid @RequestBody BranchDto.CreateRequest request) {
         
+        log.info("Creando nueva sucursal: {}", request.getName());
         BranchDto.Response branch = branchService.createBranch(request);
+        log.info("Sucursal creada exitosamente con ID: {}", branch.getId());
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CommonDto.SuccessResponse.<BranchDto.Response>builder()
@@ -114,10 +126,7 @@ public class BranchController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        org.springframework.data.domain.Pageable pageable = 
-            org.springframework.data.domain.PageRequest.of(page, size, 
-                org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<BranchDto.Response> branches = branchService.getAllBranches(pageable);
         return ResponseEntity.ok(branches);
@@ -135,10 +144,7 @@ public class BranchController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
             @RequestParam(value = "sort", defaultValue = "id") String sort) {
         
-        // Crear Pageable manualmente
-        org.springframework.data.domain.Pageable pageable = 
-            org.springframework.data.domain.PageRequest.of(page, size, 
-                org.springframework.data.domain.Sort.by(sort));
+        Pageable pageable = createPageable(page, size, sort);
         
         Page<BranchDto.Response> branches = branchService.getAllBranches(pageable);
         return ResponseEntity.ok(branches);
@@ -258,7 +264,9 @@ public class BranchController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<CommonDto.SuccessResponse<Void>> deleteBranch(@PathVariable Long id) {
+        log.info("Eliminando sucursal con ID: {}", id);
         branchService.deleteBranch(id);
+        log.info("Sucursal eliminada exitosamente con ID: {}", id);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.<Void>builder()
                 .success(true)
@@ -288,12 +296,26 @@ public class BranchController {
     @GetMapping("/stats")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<CommonDto.SuccessResponse<Object>> getBranchStats() {
+        log.info("Obteniendo estadísticas de sucursales");
+        
         long totalBranches = branchService.countBranches();
+        List<BranchDto.SummaryResponse> branches = branchService.getAllBranchesSummary();
+        
+        Map<String, Object> stats = Map.of(
+            "totalBranches", totalBranches,
+            "branchesByCity", branches.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                    BranchDto.SummaryResponse::getCity,
+                    java.util.stream.Collectors.counting()
+                ))
+        );
+        
+        log.info("Estadísticas obtenidas: {} sucursales totales", totalBranches);
         
         return ResponseEntity.ok(CommonDto.SuccessResponse.builder()
                 .success(true)
                 .message("Estadísticas obtenidas exitosamente")
-                .data(Map.of("totalBranches", totalBranches))
+                .data(stats)
                 .build());
     }
 }
