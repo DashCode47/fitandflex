@@ -3,7 +3,7 @@
 # ===========================================
 
 # Usar imagen base de OpenJDK 17 con Gradle para construir la aplicación
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jdk-alpine
 
 # Información del mantenedor
 LABEL maintainer="Fit & Flex Team <support@fitandflex.com>"
