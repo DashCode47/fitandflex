@@ -10,6 +10,7 @@
 - [ReservationController](#reservationcontroller)
 - [ScheduleController](#schedulecontroller)
 - [UserController](#usercontroller)
+- [UserMembershipController](#usermembershipcontroller)
 
 ---
 
@@ -231,6 +232,31 @@
 
 ---
 
+## UserMembershipController
+**Base URL:** `/api/user-memberships`  
+**Descripción:** Endpoints para gestión de membresías de usuario
+
+### Endpoints:
+| Método | URL | Descripción | Autenticación | Request Body |
+|--------|-----|-------------|---------------|--------------|
+| POST | `/api/user-memberships` | Asignar membresía a usuario | SUPER_ADMIN, BRANCH_ADMIN | `{"userId": 1, "productId": 1, "startDate": "2024-01-15T00:00:00", "endDate": "2024-02-15T23:59:59", "notes": "Membresía premium asignada por promoción"}` |
+| GET | `/api/user-memberships` | Obtener todas las membresías (paginado) | SUPER_ADMIN, BRANCH_ADMIN | - |
+| GET | `/api/user-memberships/{id}` | Obtener membresía por ID | SUPER_ADMIN, BRANCH_ADMIN | - |
+| GET | `/api/user-memberships/user/{userId}` | Obtener membresías por usuario | SUPER_ADMIN, BRANCH_ADMIN, Owner | - |
+| GET | `/api/user-memberships/user/{userId}/active` | Obtener membresías activas por usuario | SUPER_ADMIN, BRANCH_ADMIN, Owner | - |
+| GET | `/api/user-memberships/branch/{branchId}` | Obtener membresías por sucursal | SUPER_ADMIN, BRANCH_ADMIN | - |
+| GET | `/api/user-memberships/branch/{branchId}/active` | Obtener membresías activas por sucursal | SUPER_ADMIN, BRANCH_ADMIN | - |
+| GET | `/api/user-memberships/expiring` | Obtener membresías que expiran pronto | SUPER_ADMIN, BRANCH_ADMIN | - |
+| GET | `/api/user-memberships/expired` | Obtener membresías vencidas | SUPER_ADMIN, BRANCH_ADMIN | - |
+| PUT | `/api/user-memberships/{id}` | Actualizar membresía | SUPER_ADMIN, BRANCH_ADMIN | - |
+| PUT | `/api/user-memberships/{id}/status` | Cambiar estado de membresía | SUPER_ADMIN, BRANCH_ADMIN | - |
+| PUT | `/api/user-memberships/{id}/extend` | Extender membresía | SUPER_ADMIN, BRANCH_ADMIN | - |
+| DELETE | `/api/user-memberships/{id}` | Eliminar membresía | SUPER_ADMIN, BRANCH_ADMIN | - |
+| GET | `/api/user-memberships/user/{userId}/has-active` | Verificar si usuario tiene membresía activa | SUPER_ADMIN, BRANCH_ADMIN, Owner | - |
+| GET | `/api/user-memberships/user/{userId}/summary` | Obtener resumen de membresías por usuario | SUPER_ADMIN, BRANCH_ADMIN, Owner | - |
+
+---
+
 ## 🔐 Roles de Usuario
 
 - **SUPER_ADMIN**: Acceso completo a todas las funcionalidades
@@ -258,6 +284,7 @@
 - **ReservationController**: `userId` (number), `scheduleId` (number)
 - **ScheduleController**: `startTime` (datetime), `endTime` (datetime), `active` (boolean), `classId` (number)
 - **UserController**: `name`, `email`, `password`, `phone`, `gender`, `active`, `roleName`, `branchId`
+- **UserMembershipController**: `userId` (number), `productId` (number), `startDate` (datetime), `endDate` (datetime), `notes` (string)
 
 ### Formatos de Datos:
 - **Fechas**: Formato ISO 8601 (`YYYY-MM-DDTHH:mm:ss`)
@@ -269,3 +296,15 @@
 ## 🚀 Endpoints de Prueba
 
 Varios controladores incluyen endpoints `/test` que no requieren autenticación para facilitar las pruebas durante el desarrollo.
+
+## 📊 Estadísticas Actualizadas
+
+- **Total de Controladores**: 10
+- **Total de Endpoints**: Más de 120 endpoints documentados
+- **Nuevo Controlador**: UserMembershipController con 15 endpoints para gestión de membresías de usuario
+- **Funcionalidades Principales**: 
+  - Gestión de membresías asignadas a usuarios
+  - Control de fechas de inicio y fin
+  - Estados de membresía (ACTIVE, CANCELLED, SUSPENDED, EXPIRED)
+  - Extensión de membresías
+  - Reportes de membresías que expiran o han vencido
