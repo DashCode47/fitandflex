@@ -14,7 +14,7 @@ import jakarta.annotation.PostConstruct;
 /**
  * Inicializador de datos para crear roles y usuario SUPER_ADMIN por defecto
  */
-// @Component
+@Component
 @RequiredArgsConstructor
 @Slf4j
 public class DataInitializer {
