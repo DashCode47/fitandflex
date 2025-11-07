@@ -117,7 +117,7 @@ public class BranchController {
         )
     })
     @GetMapping
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN')")
     public ResponseEntity<Page<BranchDto.Response>> getAllBranches(
             @Parameter(description = "Número de página (por defecto: 0)", required = false) 
             @RequestParam(value = "page", defaultValue = "0") int page,
