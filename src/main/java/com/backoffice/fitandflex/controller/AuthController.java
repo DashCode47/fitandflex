@@ -2,9 +2,11 @@ package com.backoffice.fitandflex.controller;
 
 import com.backoffice.fitandflex.dto.AuthRequest;
 import com.backoffice.fitandflex.dto.AuthResponse;
+import com.backoffice.fitandflex.dto.RefreshTokenRequest;
 import com.backoffice.fitandflex.entity.User;
 import com.backoffice.fitandflex.repository.UserRepository;
 import com.backoffice.fitandflex.security.JwtService;
+import com.backoffice.fitandflex.security.UserDetailsServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,6 +36,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final UserDetailsServiceImpl userDetailsService;
 
     @Operation(
         summary = "Iniciar sesión",
@@ -206,5 +209,99 @@ public class AuthController {
             "success", true,
             "message", "Sesión cerrada exitosamente"
         ));
+    }
+
+    @Operation(
+        summary = "Refrescar token",
+        description = "Refresca un JWT token expirado. El token debe estar dentro de la ventana de gracia (7 días desde expiración)."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Token refrescado exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = AuthResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Token inválido o fuera de la ventana de gracia",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @PostMapping("/refresh-token")
+    public ResponseEntity<?> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        try {
+            log.info("Intento de refresh token");
+            
+            String token = request.getToken();
+            
+            // Remover "Bearer " si está presente
+            if (token.startsWith("Bearer ")) {
+                token = token.substring(7);
+            }
+            
+            // Verificar si el token puede ser refrescado (dentro de ventana de gracia)
+            if (!jwtService.canRefreshToken(token)) {
+                log.warn("Token fuera de la ventana de gracia para refresh");
+                throw new BadCredentialsException("Token no puede ser refrescado. Por favor, inicia sesión nuevamente.");
+            }
+            
+            // Extraer email del token (incluso si está expirado)
+            String email = jwtService.extractUsername(token);
+            
+            // Verificar que el usuario existe y está activo
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
+            
+            if (!user.getActive()) {
+                log.warn("Intento de refresh token con usuario inactivo: {}", email);
+                throw new DisabledException("Usuario inactivo");
+            }
+            
+            // Cargar UserDetails
+            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            
+            // Preparar claims adicionales para el nuevo JWT
+            Map<String, Object> extraClaims = new HashMap<>();
+            extraClaims.put("roles", userDetails.getAuthorities().stream().map(Object::toString).toList());
+            extraClaims.put("userId", user.getId());
+            extraClaims.put("branchId", user.getBranch() != null ? user.getBranch().getId() : null);
+            extraClaims.put("userActive", user.getActive());
+            
+            // Generar nuevo JWT token
+            String newJwt = jwtService.generateToken(extraClaims, userDetails);
+            
+            // Calcular tiempo de expiración en segundos
+            Long expiresIn = jwtService.getExpirationTime() / 1000;
+            
+            // Construir respuesta
+            AuthResponse response = AuthResponse.builder()
+                    .token(newJwt)
+                    .tokenType("Bearer")
+                    .expiresIn(expiresIn)
+                    .userId(user.getId())
+                    .email(user.getEmail())
+                    .name(user.getName())
+                    .role(user.getRole() != null ? user.getRole().getName() : null)
+                    .branchId(user.getBranch() != null ? user.getBranch().getId() : null)
+                    .branchName(user.getBranch() != null ? user.getBranch().getName() : null)
+                    .active(user.getActive())
+                    .build();
+            
+            log.info("Token refrescado exitosamente para usuario: {} (ID: {})", user.getEmail(), user.getId());
+            return ResponseEntity.ok(response);
+            
+        } catch (BadCredentialsException | DisabledException ex) {
+            log.warn("Error de autenticación durante refresh token: {}", ex.getMessage());
+            throw ex;
+        } catch (Exception ex) {
+            log.error("Error inesperado durante refresh token: {}", ex.getMessage(), ex);
+            throw new BadCredentialsException("Error al refrescar token: " + ex.getMessage());
+        }
     }
 }

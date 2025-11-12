@@ -22,6 +22,9 @@
 | Método | URL | Descripción | Autenticación | Request Body |
 |--------|-----|-------------|---------------|--------------|
 | POST | `/api/auth/login` | Iniciar sesión y obtener JWT token | No | `{"email": "user@example.com", "password": "password123"}` |
+| POST | `/api/auth/refresh-token` | Refrescar JWT token expirado | No | `{"token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."}` |
+| GET | `/api/auth/validate` | Validar si un JWT token es válido | No | - |
+| POST | `/api/auth/logout` | Cerrar sesión | No | - |
 
 ---
 
@@ -276,7 +279,9 @@
 
 ### Campos Comunes en POST Requests:
 
-- **AuthController**: `email` (string), `password` (string)
+- **AuthController**: 
+  - Login: `email` (string), `password` (string)
+  - Refresh Token: `token` (string) - JWT token expirado a refrescar
 - **BranchController**: `name`, `address`, `city`, `state`, `country`, `phone`, `email`
 - **ClassController**: `name`, `description`, `capacity` (number), `active` (boolean), `branchId` (number)
 - **PaymentController**: `amount` (decimal), `currency`, `paymentMethod`, `description`, `userId`, `reservationId`

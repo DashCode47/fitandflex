@@ -38,16 +38,61 @@ public class JwtService {
     }
 
     public String extractUsername(String token){
-        return parseClaims(token).getSubject();
+        try {
+            return parseClaims(token).getSubject();
+        } catch (ExpiredJwtException e) {
+            // Extraer username incluso si el token está expirado
+            return e.getClaims().getSubject();
+        }
     }
 
     public boolean isTokenExpired(String token){
-        return parseClaims(token).getExpiration().before(new Date());
+        try {
+            return parseClaims(token).getExpiration().before(new Date());
+        } catch (ExpiredJwtException e) {
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public boolean validateToken(String token, UserDetails userDetails){
-        final String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        try {
+            final String username = extractUsername(token);
+            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Extrae claims de un token incluso si está expirado (útil para refresh token)
+     */
+    public Claims extractAllClaims(String token) {
+        try {
+            return parseClaims(token);
+        } catch (ExpiredJwtException e) {
+            // Retornar claims incluso si el token está expirado
+            return e.getClaims();
+        }
+    }
+
+    /**
+     * Valida si un token expirado puede ser refrescado (dentro de una ventana de gracia)
+     * Por defecto, permite refrescar tokens expirados hasta 7 días después
+     */
+    public boolean canRefreshToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            Date expiration = claims.getExpiration();
+            Date now = new Date();
+            
+            // Permitir refrescar si el token expiró hace menos de 7 días
+            long daysSinceExpiration = (now.getTime() - expiration.getTime()) / (1000 * 60 * 60 * 24);
+            return daysSinceExpiration <= 7;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public Long getExpirationTime(){
@@ -61,6 +106,9 @@ public class JwtService {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
+        } catch (ExpiredJwtException e) {
+            // Re-lanzar para que pueda ser manejado específicamente
+            throw e;
         } catch (JwtException e) {
             throw new RuntimeException("Invalid JWT token", e);
         }
