@@ -1,0 +1,47 @@
+# Railway ignore file
+# Archivos y carpetas que Railway no necesita
+
+# Build artifacts (Railway los genera)
+bin/
+build/
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# Tests
+src/test/
+
+# Documentation
+docs/
+*.md
+!readme.md
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Scripts de deployment local
+deploy.ps1
+deploy.sh
+monitor-radar-webhooks.ps1
+
+# Docker (si no usas Docker en Railway)
+Dockerfile
+docker-compose.yml
+nginx.conf
+
+# Environment files (Railway usa variables de entorno)
+.env
+.env.local
+env.example
+

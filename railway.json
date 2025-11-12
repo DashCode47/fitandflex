@@ -1,0 +1,19 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "GRADLE",
+    "buildCommand": "./gradlew build -x test",
+    "watchPatterns": [
+      "src/**",
+      "build.gradle"
+    ]
+  },
+  "deploy": {
+    "startCommand": "java -jar build/libs/fitandflex-0.0.1-SNAPSHOT.jar",
+    "healthcheckPath": "/actuator/health",
+    "healthcheckTimeout": 100,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+

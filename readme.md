@@ -6,6 +6,21 @@ Soporta múltiples sucursales, roles de usuario y manejo de clases, reservas, pa
 
 \---
 
+## 📚 Documentación
+
+Toda la documentación del proyecto está organizada en la carpeta [`docs/`](./docs/).
+
+**📖 [Ver Índice de Documentación](./docs/INDEX.md)**
+
+### Documentación Principal:
+- **[Resumen de Controladores](./docs/RESUMEN_CONTROLADORES.md)** - Todos los endpoints de la API
+- **[JWT Refresh Token Guide](./docs/JWT_REFRESH_TOKEN_GUIDE.md)** - Autenticación y tokens
+- **[Database Setup](./docs/DATABASE_SETUP.md)** - Configuración de base de datos
+- **[Deployment](./docs/DEPLOYMENT.md)** - Guía de despliegue
+- **[Project Overview](./docs/PROJECT_OVERVIEW_AND_ROADMAP.md)** - Visión general del proyecto
+
+\---
+
 \## 🏛 Arquitectura
 
 El proyecto está organizado siguiendo una \*\*arquitectura limpia (Clean Architecture / Hexagonal)\*\*:
