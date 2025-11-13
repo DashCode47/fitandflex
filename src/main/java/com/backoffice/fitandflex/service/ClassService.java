@@ -3,9 +3,11 @@ package com.backoffice.fitandflex.service;
 import com.backoffice.fitandflex.dto.ClassDTO;
 import com.backoffice.fitandflex.entity.Branch;
 import com.backoffice.fitandflex.entity.Class;
+import com.backoffice.fitandflex.entity.ClassSchedulePattern;
 import com.backoffice.fitandflex.entity.User;
 import com.backoffice.fitandflex.repository.BranchRepository;
 import com.backoffice.fitandflex.repository.ClassRepository;
+import com.backoffice.fitandflex.repository.ClassSchedulePatternRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -28,6 +32,7 @@ public class ClassService {
     private final ClassRepository classRepository;
     private final BranchRepository branchRepository;
     private final UserRepository userRepository;
+    private final ClassSchedulePatternRepository schedulePatternRepository;
 
     /**
      * Crear una nueva clase
@@ -53,10 +58,67 @@ public class ClassService {
                 .createdBy(createdBy)
                 .build();
 
+        // Crear patrones de horarios si se proporcionaron (antes de guardar para que el cascade funcione)
+        if (request.getSchedules() != null && !request.getSchedules().isEmpty()) {
+            createSchedulePatternsForClass(clazz, request.getSchedules());
+            log.info("Patrones de horarios agregados a la clase: {}", clazz.getName());
+        }
+        
         Class savedClass = classRepository.save(clazz);
         log.info("Clase creada exitosamente: {}", savedClass.getName());
         
-        return ClassDTO.Response.fromEntity(savedClass);
+        // Cargar patrones para la respuesta (sin modificar la colección de la entidad)
+        List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(savedClass.getId());
+        
+        return ClassDTO.Response.fromEntity(savedClass, patterns);
+    }
+    
+    /**
+     * Crea patrones de horarios recurrentes para una clase basándose en los días de la semana y rangos de horas
+     */
+    private void createSchedulePatternsForClass(Class clazz, List<ClassDTO.DaySchedule> daySchedules) {
+        log.info("Creando patrones de horarios para la clase {} con {} días configurados", clazz.getName(), daySchedules.size());
+        
+        List<ClassSchedulePattern> patternsToCreate = new ArrayList<>();
+        
+        for (ClassDTO.DaySchedule daySchedule : daySchedules) {
+            // Validar día de la semana (1=Lunes, 7=Domingo)
+            if (daySchedule.getDayOfWeek() < 1 || daySchedule.getDayOfWeek() > 7) {
+                throw new IllegalArgumentException("El día de la semana debe estar entre 1 (Lunes) y 7 (Domingo)");
+            }
+            
+            // Validar y procesar cada rango de horas
+            for (ClassDTO.TimeRange timeRange : daySchedule.getTimeRanges()) {
+                // Validar que la hora de fin sea posterior a la de inicio
+                if (timeRange.getEndTime().isBefore(timeRange.getStartTime()) || 
+                    timeRange.getEndTime().equals(timeRange.getStartTime())) {
+                    throw new IllegalArgumentException(
+                        String.format("La hora de fin (%s) debe ser posterior a la hora de inicio (%s) para el día %d",
+                            timeRange.getEndTime(), timeRange.getStartTime(), daySchedule.getDayOfWeek()));
+                }
+                
+                // Crear patrón de horario
+                ClassSchedulePattern pattern = ClassSchedulePattern.builder()
+                        .clazz(clazz)
+                        .dayOfWeek(daySchedule.getDayOfWeek())
+                        .startTime(timeRange.getStartTime())
+                        .endTime(timeRange.getEndTime())
+                        .active(true)
+                        .build();
+                
+                patternsToCreate.add(pattern);
+            }
+        }
+        
+        // Agregar patrones a la colección de la entidad (el cascade los guardará cuando se guarde la clase)
+        if (!patternsToCreate.isEmpty()) {
+            // Asegurarse de que la colección esté inicializada
+            if (clazz.getSchedulePatterns() == null) {
+                clazz.setSchedulePatterns(new HashSet<>());
+            }
+            clazz.getSchedulePatterns().addAll(patternsToCreate);
+            log.info("Agregados {} patrones de horarios a la colección de la clase {}", patternsToCreate.size(), clazz.getName());
+        }
     }
 
     /**
@@ -69,7 +131,10 @@ public class ClassService {
         Class clazz = classRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Clase no encontrada: " + id));
         
-        return ClassDTO.Response.fromEntity(clazz);
+        // Cargar patrones para la respuesta (sin modificar la colección de la entidad)
+        List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(id);
+        
+        return ClassDTO.Response.fromEntity(clazz, patterns);
     }
 
     /**
@@ -80,7 +145,16 @@ public class ClassService {
         log.info("Obteniendo todas las clases con paginación");
         
         Page<Class> classes = classRepository.findAll(pageable);
-        return classes.map(ClassDTO.Response::fromEntity);
+        
+        // Cargar patrones para cada clase (sin modificar la colección de la entidad)
+        List<ClassDTO.Response> responses = classes.getContent().stream()
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
+                .collect(java.util.stream.Collectors.toList());
+        
+        return new org.springframework.data.domain.PageImpl<>(responses, pageable, classes.getTotalElements());
     }
 
     /**
@@ -92,7 +166,10 @@ public class ClassService {
         
         List<Class> classes = classRepository.findByBranchId(branchId);
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 
@@ -105,7 +182,10 @@ public class ClassService {
         
         List<Class> classes = classRepository.findActiveClassesByBranchOrderedByName(branchId);
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 
@@ -118,7 +198,10 @@ public class ClassService {
         
         List<Class> classes = classRepository.findByActiveTrue();
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 
@@ -131,7 +214,10 @@ public class ClassService {
         
         List<Class> classes = classRepository.findByNameContainingIgnoreCase(name);
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 
@@ -154,7 +240,10 @@ public class ClassService {
         }
         
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 
@@ -167,7 +256,10 @@ public class ClassService {
         
         List<Class> classes = classRepository.findClassesWithAvailableSchedules();
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 
@@ -194,10 +286,50 @@ public class ClassService {
             clazz.setActive(request.getActive());
         }
 
+        // Actualizar patrones de horarios si se proporcionaron (antes de guardar)
+        if (request.getSchedules() != null) {
+            updateSchedulePatternsForClass(clazz, request.getSchedules());
+            log.info("Patrones de horarios actualizados para la clase: {}", clazz.getName());
+        }
+        
         Class updatedClass = classRepository.save(clazz);
         log.info("Clase actualizada exitosamente: {}", updatedClass.getName());
         
-        return ClassDTO.Response.fromEntity(updatedClass);
+        // Cargar patrones para la respuesta (sin modificar la colección de la entidad)
+        List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(updatedClass.getId());
+        
+        return ClassDTO.Response.fromEntity(updatedClass, patterns);
+    }
+
+    /**
+     * Actualiza los patrones de horarios de una clase eliminando los existentes y creando nuevos
+     */
+    private void updateSchedulePatternsForClass(Class clazz, List<ClassDTO.DaySchedule> daySchedules) {
+        log.info("Actualizando patrones de horarios para la clase {} con {} días configurados", clazz.getName(), daySchedules.size());
+        
+        // Cargar los patrones existentes desde la BD
+        List<ClassSchedulePattern> existingPatterns = schedulePatternRepository.findByClazzId(clazz.getId());
+        
+        // Inicializar la colección si es null
+        if (clazz.getSchedulePatterns() == null) {
+            clazz.setSchedulePatterns(new HashSet<>());
+        }
+        
+        // Agregar los patrones existentes a la colección para que JPA los rastree
+        if (!existingPatterns.isEmpty()) {
+            clazz.getSchedulePatterns().addAll(existingPatterns);
+            log.info("Cargados {} patrones existentes en la colección de la entidad", existingPatterns.size());
+        }
+        
+        // Limpiar la colección (esto activará orphanRemoval cuando se guarde la entidad)
+        // Los patrones existentes se eliminarán automáticamente por orphanRemoval
+        clazz.getSchedulePatterns().clear();
+        log.info("Colección de patrones limpiada - los patrones existentes se eliminarán al guardar");
+        
+        // Crear nuevos patrones si se proporcionaron
+        if (!daySchedules.isEmpty()) {
+            createSchedulePatternsForClass(clazz, daySchedules);
+        }
     }
 
     /**
@@ -283,7 +415,10 @@ public class ClassService {
         
         List<Class> classes = classRepository.findByCreatedById(createdById);
         return classes.stream()
-                .map(ClassDTO.Response::fromEntity)
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                })
                 .toList();
     }
 }

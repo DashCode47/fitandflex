@@ -47,9 +47,13 @@ public class Class {
 
     private LocalDateTime updatedAt;
 
-    // Relación con horarios
+    // Relación con horarios específicos
     @OneToMany(mappedBy = "clazz", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Schedule> schedules = new HashSet<>();
+    
+    // Relación con patrones de horarios recurrentes
+    @OneToMany(mappedBy = "clazz", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ClassSchedulePattern> schedulePatterns = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {
