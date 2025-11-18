@@ -54,6 +54,9 @@ public class Class {
     // Relación con patrones de horarios recurrentes
     @OneToMany(mappedBy = "clazz", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ClassSchedulePattern> schedulePatterns = new HashSet<>();
+    
+    // Nota: La relación con suscripciones se maneja desde ClassSubscription (unidireccional)
+    // Esto evita problemas de cascade y mejora el rendimiento
 
     @PrePersist
     protected void onCreate() {

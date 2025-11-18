@@ -4,10 +4,13 @@ import com.backoffice.fitandflex.dto.ClassDTO;
 import com.backoffice.fitandflex.entity.Branch;
 import com.backoffice.fitandflex.entity.Class;
 import com.backoffice.fitandflex.entity.ClassSchedulePattern;
+import com.backoffice.fitandflex.entity.Schedule;
 import com.backoffice.fitandflex.entity.User;
 import com.backoffice.fitandflex.repository.BranchRepository;
 import com.backoffice.fitandflex.repository.ClassRepository;
 import com.backoffice.fitandflex.repository.ClassSchedulePatternRepository;
+import com.backoffice.fitandflex.repository.ClassSubscriptionRepository;
+import com.backoffice.fitandflex.repository.ScheduleRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +36,8 @@ public class ClassService {
     private final BranchRepository branchRepository;
     private final UserRepository userRepository;
     private final ClassSchedulePatternRepository schedulePatternRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final ClassSubscriptionRepository subscriptionRepository;
 
     /**
      * Crear una nueva clase
@@ -70,7 +75,10 @@ public class ClassService {
         // Cargar patrones para la respuesta (sin modificar la colección de la entidad)
         List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(savedClass.getId());
         
-        return ClassDTO.Response.fromEntity(savedClass, patterns);
+        // Contar suscripciones activas (optimizado con COUNT en BD)
+        Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(savedClass.getId()).intValue();
+        
+        return ClassDTO.Response.fromEntity(savedClass, patterns, subscriptionCount, subscriptionRepository);
     }
     
     /**
@@ -104,6 +112,7 @@ public class ClassService {
                         .startTime(timeRange.getStartTime())
                         .endTime(timeRange.getEndTime())
                         .active(true)
+                        .recurrent(daySchedule.getRecurrent() != null ? daySchedule.getRecurrent() : false)
                         .build();
                 
                 patternsToCreate.add(pattern);
@@ -134,7 +143,10 @@ public class ClassService {
         // Cargar patrones para la respuesta (sin modificar la colección de la entidad)
         List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(id);
         
-        return ClassDTO.Response.fromEntity(clazz, patterns);
+        // Contar suscripciones activas (optimizado con COUNT en BD)
+        Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(id).intValue();
+        
+        return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
     }
 
     /**
@@ -150,7 +162,8 @@ public class ClassService {
         List<ClassDTO.Response> responses = classes.getContent().stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .collect(java.util.stream.Collectors.toList());
         
@@ -168,7 +181,8 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
     }
@@ -184,7 +198,8 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
     }
@@ -200,7 +215,8 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
     }
@@ -216,7 +232,8 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
     }
@@ -242,7 +259,8 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
     }
@@ -258,7 +276,8 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
     }
@@ -298,7 +317,10 @@ public class ClassService {
         // Cargar patrones para la respuesta (sin modificar la colección de la entidad)
         List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(updatedClass.getId());
         
-        return ClassDTO.Response.fromEntity(updatedClass, patterns);
+        // Contar suscripciones activas (optimizado con COUNT en BD)
+        Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(updatedClass.getId()).intValue();
+        
+        return ClassDTO.Response.fromEntity(updatedClass, patterns, subscriptionCount, subscriptionRepository);
     }
 
     /**
@@ -417,8 +439,115 @@ public class ClassService {
         return classes.stream()
                 .map(clazz -> {
                     List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
-                    return ClassDTO.Response.fromEntity(clazz, patterns);
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
+    }
+
+    /**
+     * Asignar día de la semana desde una fecha del calendario
+     * Si es recurrente, crea un patrón de horario recurrente
+     * Si no es recurrente, crea un horario específico para esa fecha
+     */
+    public ClassDTO.Response assignDayFromDate(Long classId, ClassDTO.AssignDayFromDateRequest request) {
+        log.info("Asignando día desde fecha para clase {}: fecha={}, recurrente={}", 
+                classId, request.getDate(), request.getRecurrent());
+        
+        // Validar que la clase existe
+        Class clazz = classRepository.findById(classId)
+                .orElseThrow(() -> new IllegalArgumentException("Clase no encontrada: " + classId));
+
+        // Validar que la clase está activa
+        if (!clazz.getActive()) {
+            throw new IllegalArgumentException("No se puede asignar horarios a clases inactivas");
+        }
+
+        // Validar que la hora de fin sea posterior a la de inicio
+        if (request.getEndTime().isBefore(request.getStartTime()) || 
+            request.getEndTime().equals(request.getStartTime())) {
+            throw new IllegalArgumentException("La hora de fin debe ser posterior a la hora de inicio");
+        }
+
+        // Determinar el día de la semana de la fecha (1=Lunes, 7=Domingo)
+        // Java DayOfWeek: MONDAY=1, SUNDAY=7
+        int dayOfWeek = request.getDate().getDayOfWeek().getValue();
+
+        boolean isRecurrent = request.getRecurrent() != null && request.getRecurrent();
+
+        if (isRecurrent) {
+            // Crear patrón recurrente
+            log.info("Creando patrón recurrente para día {} de la semana", dayOfWeek);
+            
+            // Verificar si ya existe un patrón para este día y rango de horas
+            List<ClassSchedulePattern> existingPatterns = schedulePatternRepository.findByClazzId(classId);
+            boolean patternExists = existingPatterns.stream()
+                    .anyMatch(p -> p.getDayOfWeek().equals(dayOfWeek) &&
+                                  p.getStartTime().equals(request.getStartTime()) &&
+                                  p.getEndTime().equals(request.getEndTime()) &&
+                                  p.getActive());
+
+            if (patternExists) {
+                throw new IllegalArgumentException(
+                    String.format("Ya existe un patrón recurrente para el día %d con el mismo rango de horas", dayOfWeek));
+            }
+
+            // Crear nuevo patrón recurrente
+            ClassSchedulePattern pattern = ClassSchedulePattern.builder()
+                    .clazz(clazz)
+                    .dayOfWeek(dayOfWeek)
+                    .startTime(request.getStartTime())
+                    .endTime(request.getEndTime())
+                    .active(true)
+                    .recurrent(true)
+                    .build();
+
+            // Asegurarse de que la colección esté inicializada
+            if (clazz.getSchedulePatterns() == null) {
+                clazz.setSchedulePatterns(new HashSet<>());
+            }
+            clazz.getSchedulePatterns().add(pattern);
+            
+            classRepository.save(clazz);
+            log.info("Patrón recurrente creado exitosamente para día {}", dayOfWeek);
+        } else {
+            // Crear horario específico para esa fecha
+            log.info("Creando horario específico para fecha {}", request.getDate());
+            
+            // Combinar fecha y hora para crear LocalDateTime
+            java.time.LocalDateTime startDateTime = request.getDate().atTime(request.getStartTime());
+            java.time.LocalDateTime endDateTime = request.getDate().atTime(request.getEndTime());
+
+            // Validar que no hay conflictos de horarios para la misma clase en esa fecha/hora
+            List<Schedule> conflictingSchedules = scheduleRepository.findConflictingSchedules(
+                    classId, 
+                    startDateTime, 
+                    endDateTime, 
+                    -1L // No excluir ningún horario para nueva creación
+            );
+            
+            if (!conflictingSchedules.isEmpty()) {
+                throw new IllegalArgumentException("Ya existe un horario para esta clase en el rango de tiempo especificado");
+            }
+
+            // Crear horario específico
+            Schedule schedule = Schedule.builder()
+                    .startTime(startDateTime)
+                    .endTime(endDateTime)
+                    .active(true)
+                    .clazz(clazz)
+                    .build();
+
+            scheduleRepository.save(schedule);
+            log.info("Horario específico creado exitosamente para fecha {}", request.getDate());
+        }
+
+        // Cargar patrones actualizados para la respuesta
+        List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(classId);
+        
+        // Contar suscripciones activas (optimizado con COUNT en BD)
+        Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(classId).intValue();
+        
+        return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
     }
 }

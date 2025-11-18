@@ -112,6 +112,43 @@ public class ClassDTO {
                 """)
         @Valid
         private List<TimeRange> timeRanges;
+
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Indica si el horario es recurrente (se repite cada semana)", example = "true")
+        private Boolean recurrent;
+    }
+
+    /**
+     * DTO para asignar día de la semana desde una fecha del calendario
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Datos para asignar un día desde una fecha del calendario", example = """
+            {
+              "date": "2024-01-15",
+              "startTime": "10:00:00",
+              "endTime": "11:30:00",
+              "recurrent": true
+            }
+            """)
+    public static class AssignDayFromDateRequest {
+        @NotNull(message = "La fecha es obligatoria")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Fecha seleccionada del calendario (formato yyyy-MM-dd)", example = "2024-01-15")
+        private java.time.LocalDate date;
+
+        @NotNull(message = "La hora de inicio es obligatoria")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Hora de inicio (formato HH:mm:ss)", example = "10:00:00")
+        private LocalTime startTime;
+
+        @NotNull(message = "La hora de fin es obligatoria")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Hora de fin (formato HH:mm:ss)", example = "11:30:00")
+        private LocalTime endTime;
+
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Indica si el horario es recurrente (se repite cada semana en el mismo día)", example = "true")
+        @Builder.Default
+        private Boolean recurrent = false;
     }
 
     /**
@@ -131,6 +168,9 @@ public class ClassDTO {
         @NotNull(message = "La hora de fin es obligatoria")
         @io.swagger.v3.oas.annotations.media.Schema(description = "Hora de fin del rango (formato HH:mm:ss)", example = "11:30:00")
         private LocalTime endTime;
+
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Número de usuarios suscritos activamente a este horario específico", example = "5")
+        private Integer subscriptionCount;
     }
 
     /**
@@ -240,6 +280,8 @@ public class ClassDTO {
         private String description;
         private Integer capacity;
         private Boolean active;
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Número de usuarios suscritos activamente a la clase", example = "5")
+        private Integer subscriptionCount;
         private BranchDto.Response branch;
         private UserDTO.SummaryResponse createdBy;
         @io.swagger.v3.oas.annotations.media.Schema(description = "Lista de patrones de horarios de la clase (día de la semana y rangos de horas)")
@@ -248,10 +290,19 @@ public class ClassDTO {
         private LocalDateTime updatedAt;
 
         public static Response fromEntity(Class clazz) {
-            return fromEntity(clazz, null);
+            return fromEntity(clazz, null, null);
         }
         
         public static Response fromEntity(Class clazz, java.util.Collection<com.backoffice.fitandflex.entity.ClassSchedulePattern> patterns) {
+            return fromEntity(clazz, patterns, null);
+        }
+        
+        public static Response fromEntity(Class clazz, java.util.Collection<com.backoffice.fitandflex.entity.ClassSchedulePattern> patterns, Integer subscriptionCount) {
+            return fromEntity(clazz, patterns, subscriptionCount, null);
+        }
+        
+        public static Response fromEntity(Class clazz, java.util.Collection<com.backoffice.fitandflex.entity.ClassSchedulePattern> patterns, Integer subscriptionCount, 
+                                         com.backoffice.fitandflex.repository.ClassSubscriptionRepository subscriptionRepository) {
             // Convertir patrones de horarios a formato DaySchedule
             List<DaySchedule> daySchedules = null;
             
@@ -272,15 +323,37 @@ public class ClassDTO {
                 daySchedules = patternsByDay.entrySet().stream()
                     .map(entry -> {
                         List<TimeRange> timeRanges = entry.getValue().stream()
-                            .map(pattern -> TimeRange.builder()
-                                .startTime(pattern.getStartTime())
-                                .endTime(pattern.getEndTime())
-                                .build())
+                            .map(pattern -> {
+                                TimeRange.TimeRangeBuilder builder = TimeRange.builder()
+                                    .startTime(pattern.getStartTime())
+                                    .endTime(pattern.getEndTime());
+                                
+                                // Calcular conteo de suscripciones para este horario específico y día de la semana
+                                if (subscriptionRepository != null && clazz.getId() != null) {
+                                    Long count = subscriptionRepository.countActiveSubscriptionsByClassDayAndTimeRange(
+                                        clazz.getId(),
+                                        entry.getKey(), // dayOfWeek del patrón
+                                        pattern.getStartTime(),
+                                        pattern.getEndTime()
+                                    );
+                                    builder.subscriptionCount(count != null ? count.intValue() : 0);
+                                } else {
+                                    builder.subscriptionCount(0);
+                                }
+                                
+                                return builder.build();
+                            })
                             .collect(Collectors.toList());
+                        
+                        // Obtener el valor de recurrent del primer patrón del día (todos deberían tener el mismo valor)
+                        Boolean recurrent = entry.getValue().isEmpty() ? false : 
+                            entry.getValue().get(0).getRecurrent() != null ? 
+                            entry.getValue().get(0).getRecurrent() : false;
                         
                         return DaySchedule.builder()
                             .dayOfWeek(entry.getKey())
                             .timeRanges(timeRanges)
+                            .recurrent(recurrent)
                             .build();
                     })
                     .sorted(java.util.Comparator.comparing(DaySchedule::getDayOfWeek))
@@ -293,6 +366,7 @@ public class ClassDTO {
                     .description(clazz.getDescription())
                     .capacity(clazz.getCapacity())
                     .active(clazz.getActive())
+                    .subscriptionCount(subscriptionCount != null ? subscriptionCount : 0)
                     .branch(clazz.getBranch() != null ? BranchDto.Response.fromEntity(clazz.getBranch()) : null)
                     .createdBy(clazz.getCreatedBy() != null ? UserDTO.SummaryResponse.fromEntity(clazz.getCreatedBy())
                             : null)
@@ -334,6 +408,104 @@ public class ClassDTO {
                     .capacity(clazz.getCapacity())
                     .active(clazz.getActive())
                     .branchName(clazz.getBranch() != null ? clazz.getBranch().getName() : null)
+                    .build();
+        }
+    }
+
+    /**
+     * DTO para crear una suscripción/reserva de usuario a clase
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Datos para crear una suscripción de usuario a clase", example = """
+            {
+              "userId": 1,
+              "startTime": "09:00:00",
+              "endTime": "10:00:00",
+              "date": "2024-01-15",
+              "recurrent": false
+            }
+            """)
+    public static class CreateSubscriptionRequest {
+        @NotNull(message = "El ID del usuario es obligatorio")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "ID del usuario que se suscribe", example = "1")
+        private Long userId;
+
+        @NotNull(message = "La hora de inicio es obligatoria")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Hora de inicio del rango de horas (formato HH:mm:ss)", example = "09:00:00")
+        private LocalTime startTime;
+
+        @NotNull(message = "La hora de fin es obligatoria")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Hora de fin del rango de horas (formato HH:mm:ss)", example = "10:00:00")
+        private LocalTime endTime;
+
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Fecha específica de la suscripción (opcional, requerida si recurrent=false). Si se proporciona, se usará para calcular dayOfWeek automáticamente", example = "2024-01-15")
+        private java.time.LocalDate date;
+
+        @Min(value = 1, message = "El día de la semana debe estar entre 1 (Lunes) y 7 (Domingo)")
+        @Max(value = 7, message = "El día de la semana debe estar entre 1 (Lunes) y 7 (Domingo)")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Día de la semana (1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 7=Domingo). Si se proporciona date, se calculará automáticamente. Para recurrentes sin date, es obligatorio.", example = "1")
+        private Integer dayOfWeek;
+
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Indica si la suscripción es recurrente (se repite cada semana)", example = "false")
+        private Boolean recurrent;
+    }
+
+    /**
+     * DTO para respuesta de suscripción
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Información de una suscripción de usuario a clase", example = """
+            {
+              "id": 1,
+              "userId": 1,
+              "classId": 5,
+              "className": "Yoga Vinyasa",
+              "startTime": "09:00:00",
+              "endTime": "10:00:00",
+              "date": "2024-01-15",
+              "recurrent": false,
+              "active": true,
+              "createdAt": "2024-01-15T10:30:00",
+              "updatedAt": "2024-01-15T10:30:00"
+            }
+            """)
+    public static class SubscriptionResponse {
+        private Long id;
+        private Long userId;
+        private Long classId;
+        private String className;
+        private LocalTime startTime;
+        private LocalTime endTime;
+        private java.time.LocalDate date;
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Día de la semana (1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 7=Domingo)", example = "1")
+        private Integer dayOfWeek;
+        private Boolean recurrent;
+        private Boolean active;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+
+        public static SubscriptionResponse fromEntity(com.backoffice.fitandflex.entity.ClassSubscription subscription) {
+            return SubscriptionResponse.builder()
+                    .id(subscription.getId())
+                    .userId(subscription.getUser() != null ? subscription.getUser().getId() : null)
+                    .classId(subscription.getClazz() != null ? subscription.getClazz().getId() : null)
+                    .className(subscription.getClazz() != null ? subscription.getClazz().getName() : null)
+                    .startTime(subscription.getStartTime())
+                    .endTime(subscription.getEndTime())
+                    .date(subscription.getDate())
+                    .dayOfWeek(subscription.getDayOfWeek())
+                    .recurrent(subscription.getRecurrent())
+                    .active(subscription.getActive())
+                    .createdAt(subscription.getCreatedAt())
+                    .updatedAt(subscription.getUpdatedAt())
                     .build();
         }
     }

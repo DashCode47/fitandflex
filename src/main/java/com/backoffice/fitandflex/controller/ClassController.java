@@ -1,7 +1,9 @@
 package com.backoffice.fitandflex.controller;
 
 import com.backoffice.fitandflex.dto.ClassDTO;
+import com.backoffice.fitandflex.dto.CommonDto;
 import com.backoffice.fitandflex.service.ClassService;
+import com.backoffice.fitandflex.service.ClassSubscriptionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,6 +21,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +37,7 @@ import java.util.Map;
 public class ClassController {
 
     private final ClassService classService;
+    private final ClassSubscriptionService subscriptionService;
     
     /**
      * Helper method para crear Pageable con validaciones
@@ -520,6 +525,312 @@ public class ClassController {
             "success", true,
             "active", active,
             "classId", id
+        ));
+    }
+
+    @Operation(
+        summary = "Asignar día de la semana desde fecha del calendario",
+        description = "Asigna un día de la semana a una clase desde una fecha seleccionada del calendario. " +
+                      "Si es recurrente, crea un patrón que se repetirá cada semana en ese día. " +
+                      "Si no es recurrente, crea un horario específico para esa fecha."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Día asignado exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = ClassDTO.Response.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Datos de entrada inválidos o conflicto de horarios",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Clase no encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "403",
+            description = "Acceso denegado - Se requiere rol SUPER_ADMIN o BRANCH_ADMIN",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @PostMapping("/{id}/assign-day")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
+    public ResponseEntity<ClassDTO.Response> assignDayFromDate(
+            @PathVariable Long id,
+            @Valid @RequestBody ClassDTO.AssignDayFromDateRequest request) {
+        log.info("Asignando día desde fecha para clase {}: fecha={}, recurrente={}", 
+                id, request.getDate(), request.getRecurrent());
+        
+        ClassDTO.Response response = classService.assignDayFromDate(id, request);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
+        summary = "Crear suscripción de usuario a clase",
+        description = "Permite que un usuario se suscriba/reserve a una clase con un horario específico o recurrente"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "201",
+            description = "Suscripción creada exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = CommonDto.SuccessResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Datos de entrada inválidos o conflicto de suscripción",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Clase o usuario no encontrado",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @PostMapping("/{id}/subscribe")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<CommonDto.SuccessResponse<ClassDTO.SubscriptionResponse>> createSubscription(
+            @PathVariable Long id,
+            @Valid @RequestBody ClassDTO.CreateSubscriptionRequest request) {
+        log.info("Creando suscripción para usuario {} en clase {}", request.getUserId(), id);
+        
+        ClassDTO.SubscriptionResponse subscription = subscriptionService.createSubscription(id, request);
+        
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(CommonDto.SuccessResponse.<ClassDTO.SubscriptionResponse>builder()
+                        .success(true)
+                        .message("Suscripción creada exitosamente")
+                        .data(subscription)
+                        .build());
+    }
+
+    @Operation(
+        summary = "Obtener suscripciones de una clase",
+        description = "Obtiene todas las suscripciones activas de una clase específica"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de suscripciones obtenida exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = List.class)
+            )
+        )
+    })
+    @GetMapping("/{id}/subscriptions")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<ClassDTO.SubscriptionResponse>> getSubscriptionsByClassId(@PathVariable Long id) {
+        log.info("Obteniendo suscripciones de la clase: {}", id);
+        
+        List<ClassDTO.SubscriptionResponse> subscriptions = subscriptionService.getSubscriptionsByClassId(id);
+        
+        return ResponseEntity.ok(subscriptions);
+    }
+
+    @Operation(
+        summary = "Obtener usuarios de una clase",
+        description = "Obtiene todos los usuarios únicos suscritos a una clase"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de usuarios obtenida exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = List.class)
+            )
+        )
+    })
+    @GetMapping("/{id}/users")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<com.backoffice.fitandflex.dto.UserDTO.SummaryResponse>> getUsersByClassId(@PathVariable Long id) {
+        log.info("Obteniendo usuarios de la clase: {}", id);
+        
+        List<com.backoffice.fitandflex.dto.UserDTO.SummaryResponse> users = subscriptionService.getUsersByClassId(id);
+        
+        return ResponseEntity.ok(users);
+    }
+
+    @Operation(
+        summary = "Obtener usuarios de un horario específico de una clase",
+        description = "Obtiene todos los usuarios únicos suscritos a un horario específico de una clase. " +
+                      "Incluye tanto suscripciones recurrentes como específicas que coinciden con el rango de horas."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de usuarios obtenida exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = List.class)
+            )
+        )
+    })
+    @GetMapping("/{id}/users/time")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<com.backoffice.fitandflex.dto.UserDTO.SummaryResponse>> getUsersByClassAndTimeRange(
+            @PathVariable Long id,
+            @Parameter(description = "Hora de inicio del rango (formato HH:mm:ss)", example = "18:00:00", required = true)
+            @RequestParam LocalTime startTime,
+            @Parameter(description = "Hora de fin del rango (formato HH:mm:ss)", example = "19:30:00", required = true)
+            @RequestParam LocalTime endTime,
+            @Parameter(description = "Fecha específica (opcional). Si se proporciona, solo retorna usuarios suscritos para esa fecha específica", example = "2025-11-18")
+            @RequestParam(required = false) LocalDate date) {
+        
+        List<com.backoffice.fitandflex.dto.UserDTO.SummaryResponse> users;
+        
+        if (date != null) {
+            // Si se proporciona fecha, buscar usuarios para esa fecha específica
+            log.info("Obteniendo usuarios de la clase {} para fecha {} y horario {} - {}", id, date, startTime, endTime);
+            users = subscriptionService.getUsersByClassTimeAndDate(id, date, startTime, endTime);
+        } else {
+            // Si no se proporciona fecha, buscar usuarios para el horario (incluye recurrentes y específicas)
+            log.info("Obteniendo usuarios de la clase {} para horario {} - {}", id, startTime, endTime);
+            users = subscriptionService.getUsersByClassAndTimeRange(id, startTime, endTime);
+        }
+        
+        return ResponseEntity.ok(users);
+    }
+
+    @Operation(
+        summary = "Obtener clases de un usuario",
+        description = "Obtiene todas las clases a las que un usuario está suscrito"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de clases obtenida exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = List.class)
+            )
+        )
+    })
+    @GetMapping("/user/{userId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<ClassDTO.SummaryResponse>> getClassesByUserId(@PathVariable Long userId) {
+        log.info("Obteniendo clases del usuario: {}", userId);
+        
+        List<ClassDTO.SummaryResponse> classes = subscriptionService.getClassesByUserId(userId);
+        
+        return ResponseEntity.ok(classes);
+    }
+
+    @Operation(
+        summary = "Obtener suscripciones de un usuario",
+        description = "Obtiene todas las suscripciones activas de un usuario"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de suscripciones obtenida exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = List.class)
+            )
+        )
+    })
+    @GetMapping("/user/{userId}/subscriptions")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<ClassDTO.SubscriptionResponse>> getSubscriptionsByUserId(@PathVariable Long userId) {
+        log.info("Obteniendo suscripciones del usuario: {}", userId);
+        
+        List<ClassDTO.SubscriptionResponse> subscriptions = subscriptionService.getSubscriptionsByUserId(userId);
+        
+        return ResponseEntity.ok(subscriptions);
+    }
+
+    @Operation(
+        summary = "Cancelar suscripción",
+        description = "Cancela una suscripción marcándola como inactiva"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Suscripción cancelada exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = CommonDto.SuccessResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Suscripción no encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @PutMapping("/subscriptions/{subscriptionId}/cancel")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<CommonDto.SuccessResponse<ClassDTO.SubscriptionResponse>> cancelSubscription(
+            @PathVariable Long subscriptionId) {
+        log.info("Cancelando suscripción: {}", subscriptionId);
+        
+        ClassDTO.SubscriptionResponse subscription = subscriptionService.cancelSubscription(subscriptionId);
+        
+        return ResponseEntity.ok(CommonDto.SuccessResponse.<ClassDTO.SubscriptionResponse>builder()
+                .success(true)
+                .message("Suscripción cancelada exitosamente")
+                .data(subscription)
+                .build());
+    }
+
+    @Operation(
+        summary = "Eliminar suscripción",
+        description = "Elimina permanentemente una suscripción del sistema"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Suscripción eliminada exitosamente"
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Suscripción no encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @DeleteMapping("/subscriptions/{subscriptionId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteSubscription(@PathVariable Long subscriptionId) {
+        log.info("Eliminando suscripción: {}", subscriptionId);
+        
+        subscriptionService.deleteSubscription(subscriptionId);
+        
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Suscripción eliminada exitosamente",
+            "subscriptionId", subscriptionId
         ));
     }
 }

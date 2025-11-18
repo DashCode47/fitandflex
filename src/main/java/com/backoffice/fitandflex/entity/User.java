@@ -77,6 +77,9 @@ public class User {
     @JoinColumn(name = "branch_id", foreignKey = @ForeignKey(name = "fk_user_branch"))
     private Branch branch;
 
+    // Nota: La relación con suscripciones se maneja desde ClassSubscription (unidireccional)
+    // Esto evita problemas de cascade y mejora el rendimiento
+
     /**
      * Timestamps
      */

@@ -116,6 +116,28 @@ CREATE INDEX IF NOT EXISTS idx_schedule_start_time ON schedules(start_time);
 CREATE INDEX IF NOT EXISTS idx_schedule_active ON schedules(active);
 
 -- ===========================================
+-- CREATE CLASS SCHEDULE PATTERNS TABLE
+-- ===========================================
+CREATE TABLE IF NOT EXISTS class_schedule_patterns (
+    id BIGSERIAL PRIMARY KEY,
+    day_of_week INTEGER NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    recurrent BOOLEAN NOT NULL DEFAULT FALSE,
+    class_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_schedule_pattern_class FOREIGN KEY (class_id) REFERENCES classes(id)
+);
+
+-- Create indexes on class_schedule_patterns
+CREATE INDEX IF NOT EXISTS idx_schedule_pattern_class ON class_schedule_patterns(class_id);
+CREATE INDEX IF NOT EXISTS idx_schedule_pattern_day ON class_schedule_patterns(day_of_week);
+CREATE INDEX IF NOT EXISTS idx_schedule_pattern_active ON class_schedule_patterns(active);
+CREATE INDEX IF NOT EXISTS idx_schedule_pattern_recurrent ON class_schedule_patterns(recurrent);
+
+-- ===========================================
 -- CREATE RESERVATIONS TABLE
 -- ===========================================
 CREATE TABLE IF NOT EXISTS reservations (
@@ -270,6 +292,7 @@ CREATE TRIGGER update_branches_updated_at BEFORE UPDATE ON branches FOR EACH ROW
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_classes_updated_at BEFORE UPDATE ON classes FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_schedules_updated_at BEFORE UPDATE ON schedules FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_class_schedule_patterns_updated_at BEFORE UPDATE ON class_schedule_patterns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_products_updated_at BEFORE UPDATE ON products FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

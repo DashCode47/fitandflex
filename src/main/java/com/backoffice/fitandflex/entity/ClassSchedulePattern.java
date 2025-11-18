@@ -36,6 +36,10 @@ public class ClassSchedulePattern {
     @Builder.Default
     private Boolean active = true;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean recurrent = false; // Indica si el patrón es recurrente (se repite cada semana)
+
     // Relación con la clase
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "class_id", nullable = false)
