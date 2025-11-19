@@ -51,6 +51,20 @@ public interface ClassSubscriptionRepository extends JpaRepository<ClassSubscrip
             @Param("endTime") LocalTime endTime);
 
     /**
+     * Buscar una suscripción (activa o inactiva) por usuario, clase, fecha y horario
+     * Útil para reactivar suscripciones canceladas
+     */
+    @Query("SELECT cs FROM ClassSubscription cs WHERE cs.user.id = :userId AND cs.clazz.id = :classId AND " +
+           "cs.dayOfWeek = :dayOfWeek AND cs.date = :date AND cs.startTime = :startTime AND cs.endTime = :endTime")
+    Optional<ClassSubscription> findSubscriptionByUserClassDateAndTime(
+            @Param("userId") Long userId,
+            @Param("classId") Long classId,
+            @Param("dayOfWeek") Integer dayOfWeek,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    /**
      * Verificar si existe una suscripción activa recurrente (sin fecha específica) para un día específico
      */
     @Query("SELECT CASE WHEN COUNT(cs) > 0 THEN true ELSE false END " +
@@ -146,6 +160,43 @@ public interface ClassSubscriptionRepository extends JpaRepository<ClassSubscrip
     Long countActiveSubscriptionsByClassDayAndTimeRange(
             @Param("classId") Long classId,
             @Param("dayOfWeek") Integer dayOfWeek,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    /**
+     * Obtener clases únicas que tienen suscripciones activas para una fecha específica
+     */
+    @Query("SELECT DISTINCT cs.clazz FROM ClassSubscription cs WHERE cs.date = :date AND cs.active = true")
+    List<Class> findClassesWithSubscriptionsForDate(@Param("date") LocalDate date);
+
+    /**
+     * Obtener suscripciones activas de una clase para una fecha específica
+     */
+    @Query("SELECT cs FROM ClassSubscription cs WHERE cs.clazz.id = :classId AND cs.date = :date AND cs.active = true")
+    List<ClassSubscription> findSubscriptionsByClassAndDate(
+            @Param("classId") Long classId,
+            @Param("date") LocalDate date);
+
+    /**
+     * Buscar una suscripción activa por usuario, clase y fecha
+     * Si hay múltiples suscripciones para la misma fecha, retorna la primera encontrada
+     */
+    @Query("SELECT cs FROM ClassSubscription cs WHERE cs.user.id = :userId AND cs.clazz.id = :classId AND " +
+           "cs.date = :date AND cs.active = true ORDER BY cs.startTime ASC")
+    List<ClassSubscription> findActiveSubscriptionsByUserClassAndDate(
+            @Param("userId") Long userId,
+            @Param("classId") Long classId,
+            @Param("date") LocalDate date);
+
+    /**
+     * Buscar una suscripción activa por usuario, clase, fecha y horario específico
+     */
+    @Query("SELECT cs FROM ClassSubscription cs WHERE cs.user.id = :userId AND cs.clazz.id = :classId AND " +
+           "cs.date = :date AND cs.startTime = :startTime AND cs.endTime = :endTime AND cs.active = true")
+    Optional<ClassSubscription> findActiveSubscriptionByUserClassDateAndTime(
+            @Param("userId") Long userId,
+            @Param("classId") Long classId,
+            @Param("date") LocalDate date,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
 }

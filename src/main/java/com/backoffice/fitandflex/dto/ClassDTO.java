@@ -378,6 +378,54 @@ public class ClassDTO {
     }
 
     /**
+     * DTO para respuesta de clase con fecha específica
+     * Usado cuando se consultan clases para una fecha específica
+     */
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Información de clase para una fecha específica", example = """
+            {
+              "id": 1,
+              "name": "Yoga Vinyasa",
+              "description": "Clase de yoga dinámico",
+              "capacity": 20,
+              "active": true,
+              "subscriptionCount": 5,
+              "date": "2025-11-18",
+              "dayOfWeek": 1,
+              "timeRanges": [
+                {
+                  "startTime": "10:00:00",
+                  "endTime": "11:30:00",
+                  "subscriptionCount": 3
+                }
+              ]
+            }
+            """)
+    public static class ResponseWithDate {
+        private Long id;
+        private String name;
+        private String description;
+        private Integer capacity;
+        private Boolean active;
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Número de usuarios suscritos activamente a la clase", example = "5")
+        private Integer subscriptionCount;
+        private BranchDto.Response branch;
+        private UserDTO.SummaryResponse createdBy;
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Fecha específica para la cual se consultan los horarios", example = "2025-11-18")
+        private java.time.LocalDate date;
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Día de la semana (1=Lunes, 7=Domingo)", example = "1")
+        private Integer dayOfWeek;
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Lista de rangos de horas para esta fecha específica")
+        private List<TimeRange> timeRanges;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
+    }
+
+    /**
      * DTO para respuesta simplificada de clase (solo datos básicos)
      */
     @Getter
@@ -420,13 +468,12 @@ public class ClassDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    @io.swagger.v3.oas.annotations.media.Schema(description = "Datos para crear una suscripción de usuario a clase", example = """
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Datos para crear una suscripción de usuario a clase. Cada suscripción es para una fecha específica.", example = """
             {
               "userId": 1,
               "startTime": "09:00:00",
               "endTime": "10:00:00",
-              "date": "2024-01-15",
-              "recurrent": false
+              "date": "2025-11-18"
             }
             """)
     public static class CreateSubscriptionRequest {
@@ -442,16 +489,9 @@ public class ClassDTO {
         @io.swagger.v3.oas.annotations.media.Schema(description = "Hora de fin del rango de horas (formato HH:mm:ss)", example = "10:00:00")
         private LocalTime endTime;
 
-        @io.swagger.v3.oas.annotations.media.Schema(description = "Fecha específica de la suscripción (opcional, requerida si recurrent=false). Si se proporciona, se usará para calcular dayOfWeek automáticamente", example = "2024-01-15")
+        @NotNull(message = "La fecha es obligatoria")
+        @io.swagger.v3.oas.annotations.media.Schema(description = "Fecha específica de la suscripción (formato yyyy-MM-dd). Cada suscripción es para una fecha específica. Si deseas suscribirte a múltiples fechas, debes crear múltiples suscripciones.", example = "2025-11-18")
         private java.time.LocalDate date;
-
-        @Min(value = 1, message = "El día de la semana debe estar entre 1 (Lunes) y 7 (Domingo)")
-        @Max(value = 7, message = "El día de la semana debe estar entre 1 (Lunes) y 7 (Domingo)")
-        @io.swagger.v3.oas.annotations.media.Schema(description = "Día de la semana (1=Lunes, 2=Martes, 3=Miércoles, 4=Jueves, 5=Viernes, 6=Sábado, 7=Domingo). Si se proporciona date, se calculará automáticamente. Para recurrentes sin date, es obligatorio.", example = "1")
-        private Integer dayOfWeek;
-
-        @io.swagger.v3.oas.annotations.media.Schema(description = "Indica si la suscripción es recurrente (se repite cada semana)", example = "false")
-        private Boolean recurrent;
     }
 
     /**

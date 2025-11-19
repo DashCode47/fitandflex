@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -54,82 +55,70 @@ public class ClassSubscriptionService {
             throw new IllegalArgumentException("La hora de inicio debe ser anterior a la hora de fin");
         }
 
-        // Validar lógica de recurrent y date
-        Boolean recurrent = request.getRecurrent() != null ? request.getRecurrent() : false;
+        // Validar que la fecha es obligatoria
         LocalDate date = request.getDate();
-
-        if (recurrent && date != null) {
-            throw new IllegalArgumentException("Una suscripción recurrente no puede tener una fecha específica");
+        if (date == null) {
+            throw new IllegalArgumentException("La fecha es obligatoria para crear una suscripción");
         }
 
-        if (!recurrent && date == null) {
-            throw new IllegalArgumentException("Una suscripción no recurrente debe tener una fecha específica");
-        }
+        // Calcular día de la semana desde la fecha
+        Integer dayOfWeek = date.getDayOfWeek().getValue();
 
-        // Calcular día de la semana antes de validar duplicados
-        Integer dayOfWeek;
-        if (request.getDayOfWeek() != null) {
-            dayOfWeek = request.getDayOfWeek();
-        } else if (date != null) {
-            dayOfWeek = date.getDayOfWeek().getValue();
-        } else if (recurrent) {
-            throw new IllegalArgumentException("Para suscripciones recurrentes, se debe proporcionar dayOfWeek o date para calcularlo");
-        } else {
-            throw new IllegalArgumentException("Se debe proporcionar date o dayOfWeek para crear la suscripción");
-        }
-
-        // Validar que no existe ya una suscripción activa con los mismos datos
-        boolean exists;
-        if (recurrent) {
-            // Para suscripciones recurrentes, verificar si existe una con date IS NULL y mismo día
-            exists = subscriptionRepository.existsActiveRecurrentSubscription(
-                    request.getUserId(), 
-                    classId, 
-                    dayOfWeek,
-                    request.getStartTime(), 
-                    request.getEndTime());
-        } else {
-            // Para suscripciones específicas, verificar si existe una con la fecha específica y mismo día
-            exists = subscriptionRepository.existsActiveSubscriptionWithDate(
-                    request.getUserId(), 
-                    classId, 
-                    dayOfWeek,
-                    date, 
-                    request.getStartTime(), 
-                    request.getEndTime());
-        }
+        // Verificar si existe una suscripción activa con los mismos datos
+        boolean existsActive = subscriptionRepository.existsActiveSubscriptionWithDate(
+                request.getUserId(), 
+                classId, 
+                dayOfWeek,
+                date, 
+                request.getStartTime(), 
+                request.getEndTime());
         
-        if (exists) {
+        if (existsActive) {
             throw new IllegalArgumentException("Ya existe una suscripción activa para este usuario, clase, fecha y horario");
         }
 
-        // Validar capacidad de la clase (si es fecha específica)
-        if (!recurrent && date != null) {
+        // Verificar si existe una suscripción inactiva (cancelada previamente) con los mismos datos
+        // Si existe, reactivarla en lugar de crear una nueva
+        Optional<ClassSubscription> existingInactiveSubscription = subscriptionRepository.findSubscriptionByUserClassDateAndTime(
+                request.getUserId(),
+                classId,
+                dayOfWeek,
+                date,
+                request.getStartTime(),
+                request.getEndTime());
+
+        ClassSubscription savedSubscription;
+        
+        if (existingInactiveSubscription.isPresent() && !existingInactiveSubscription.get().getActive()) {
+            // Reactivar suscripción existente
+            ClassSubscription subscription = existingInactiveSubscription.get();
+            subscription.setActive(true);
+            savedSubscription = subscriptionRepository.save(subscription);
+            log.info("Suscripción reactivada exitosamente con ID: {}", savedSubscription.getId());
+        } else {
+            // Validar capacidad de la clase para esta fecha específica
             Long currentSubscriptions = subscriptionRepository.countByClazzIdAndDateAndStartTimeAndEndTimeAndActiveTrue(
                     classId, date, request.getStartTime(), request.getEndTime());
             
             if (currentSubscriptions >= clazz.getCapacity()) {
                 throw new IllegalArgumentException("La clase está llena para este horario y fecha");
             }
+
+            // Crear nueva suscripción (siempre con fecha específica, recurrent siempre false)
+            ClassSubscription subscription = ClassSubscription.builder()
+                    .user(user)
+                    .clazz(clazz)
+                    .startTime(request.getStartTime())
+                    .endTime(request.getEndTime())
+                    .date(date)
+                    .dayOfWeek(dayOfWeek)
+                    .recurrent(false) // Siempre false, cada suscripción es para una fecha específica
+                    .active(true)
+                    .build();
+
+            savedSubscription = subscriptionRepository.save(subscription);
+            log.info("Suscripción creada exitosamente con ID: {}", savedSubscription.getId());
         }
-
-        // Crear la suscripción
-        // Si es recurrente, date debe ser NULL; si no, usar la fecha específica
-        LocalDate subscriptionDate = recurrent ? null : date;
-        
-        ClassSubscription subscription = ClassSubscription.builder()
-                .user(user)
-                .clazz(clazz)
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
-                .date(subscriptionDate)
-                .dayOfWeek(dayOfWeek)
-                .recurrent(recurrent)
-                .active(true)
-                .build();
-
-        ClassSubscription savedSubscription = subscriptionRepository.save(subscription);
-        log.info("Suscripción creada exitosamente con ID: {}", savedSubscription.getId());
 
         return ClassDTO.SubscriptionResponse.fromEntity(savedSubscription);
     }
@@ -243,6 +232,60 @@ public class ClassSubscriptionService {
         
         subscriptionRepository.deleteById(subscriptionId);
         log.info("Suscripción eliminada exitosamente: {}", subscriptionId);
+    }
+
+    /**
+     * Cancelar suscripción por usuario, clase y fecha
+     * Si hay múltiples suscripciones para la misma fecha, cancela todas
+     */
+    public ClassDTO.SubscriptionResponse cancelSubscriptionByUserClassAndDate(
+            Long userId, Long classId, LocalDate date) {
+        log.info("Cancelando suscripción para usuario {}, clase {} y fecha {}", userId, classId, date);
+        
+        List<ClassSubscription> subscriptions = subscriptionRepository.findActiveSubscriptionsByUserClassAndDate(
+                userId, classId, date);
+        
+        if (subscriptions.isEmpty()) {
+            throw new IllegalArgumentException(
+                    String.format("No se encontró una suscripción activa para el usuario %d, clase %d y fecha %s", 
+                            userId, classId, date));
+        }
+        
+        // Si hay múltiples suscripciones para la misma fecha, cancelar todas
+        if (subscriptions.size() > 1) {
+            log.warn("Se encontraron {} suscripciones para usuario {}, clase {} y fecha {}. Cancelando todas.", 
+                    subscriptions.size(), userId, classId, date);
+        }
+        
+        // Cancelar la primera (o todas si es necesario)
+        ClassSubscription subscription = subscriptions.get(0);
+        subscription.setActive(false);
+        ClassSubscription savedSubscription = subscriptionRepository.save(subscription);
+        
+        log.info("Suscripción cancelada exitosamente: {}", savedSubscription.getId());
+        return ClassDTO.SubscriptionResponse.fromEntity(savedSubscription);
+    }
+
+    /**
+     * Cancelar suscripción por usuario, clase, fecha y horario específico
+     * Permite cancelar una suscripción específica cuando hay múltiples para la misma fecha
+     */
+    public ClassDTO.SubscriptionResponse cancelSubscriptionByUserClassDateAndTime(
+            Long userId, Long classId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        log.info("Cancelando suscripción para usuario {}, clase {}, fecha {} y horario {} - {}", 
+                userId, classId, date, startTime, endTime);
+        
+        ClassSubscription subscription = subscriptionRepository.findActiveSubscriptionByUserClassDateAndTime(
+                userId, classId, date, startTime, endTime)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        String.format("No se encontró una suscripción activa para el usuario %d, clase %d, fecha %s y horario %s - %s", 
+                                userId, classId, date, startTime, endTime)));
+        
+        subscription.setActive(false);
+        ClassSubscription savedSubscription = subscriptionRepository.save(subscription);
+        
+        log.info("Suscripción cancelada exitosamente: {}", savedSubscription.getId());
+        return ClassDTO.SubscriptionResponse.fromEntity(savedSubscription);
     }
 }
 

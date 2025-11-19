@@ -1,9 +1,12 @@
 package com.backoffice.fitandflex.service;
 
+import com.backoffice.fitandflex.dto.BranchDto;
 import com.backoffice.fitandflex.dto.ClassDTO;
+import com.backoffice.fitandflex.dto.UserDTO;
 import com.backoffice.fitandflex.entity.Branch;
 import com.backoffice.fitandflex.entity.Class;
 import com.backoffice.fitandflex.entity.ClassSchedulePattern;
+import com.backoffice.fitandflex.entity.ClassSubscription;
 import com.backoffice.fitandflex.entity.Schedule;
 import com.backoffice.fitandflex.entity.User;
 import com.backoffice.fitandflex.repository.BranchRepository;
@@ -219,6 +222,134 @@ public class ClassService {
                     return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
                 })
                 .toList();
+    }
+
+    /**
+     * Obtener clases activas para una fecha específica
+     * Incluye clases con patrones recurrentes para ese día Y clases con suscripciones directas para esa fecha
+     */
+    @Transactional(readOnly = true)
+    public List<ClassDTO.ResponseWithDate> getActiveClassesByDate(java.time.LocalDate date) {
+        log.info("Obteniendo clases activas para la fecha: {}", date);
+        
+        // Calcular el día de la semana de la fecha (1=Lunes, 7=Domingo)
+        int dayOfWeek = date.getDayOfWeek().getValue();
+        
+        // Obtener clases que tienen suscripciones para esta fecha específica
+        List<Class> classesWithSubscriptions = subscriptionRepository.findClassesWithSubscriptionsForDate(date);
+        
+        // Obtener todas las clases activas
+        List<Class> allActiveClasses = classRepository.findByActiveTrue();
+        
+        // Combinar ambas listas (sin duplicados)
+        java.util.Set<Long> classIds = new java.util.HashSet<>();
+        List<Class> relevantClasses = new java.util.ArrayList<>();
+        
+        // Agregar clases con suscripciones
+        for (Class clazz : classesWithSubscriptions) {
+            if (clazz.getActive() && !classIds.contains(clazz.getId())) {
+                classIds.add(clazz.getId());
+                relevantClasses.add(clazz);
+            }
+        }
+        
+        // Agregar clases con patrones recurrentes para este día
+        for (Class clazz : allActiveClasses) {
+            if (!classIds.contains(clazz.getId())) {
+                List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId())
+                        .stream()
+                        .filter(pattern -> pattern.getDayOfWeek().equals(dayOfWeek))
+                        .collect(java.util.stream.Collectors.toList());
+                
+                if (!patterns.isEmpty()) {
+                    classIds.add(clazz.getId());
+                    relevantClasses.add(clazz);
+                }
+            }
+        }
+        
+        return relevantClasses.stream()
+                .map(clazz -> {
+                    // Obtener suscripciones directas para esta fecha
+                    List<ClassSubscription> subscriptionsForDate = subscriptionRepository.findSubscriptionsByClassAndDate(
+                            clazz.getId(), date);
+                    
+                    // Obtener patrones recurrentes para este día
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId())
+                            .stream()
+                            .filter(pattern -> pattern.getDayOfWeek().equals(dayOfWeek))
+                            .collect(java.util.stream.Collectors.toList());
+                    
+                    // Crear un mapa de horarios únicos (combinando patrones y suscripciones)
+                    java.util.Map<String, ClassDTO.TimeRange> timeRangeMap = new java.util.HashMap<>();
+                    
+                    // Agregar horarios de patrones recurrentes
+                    for (ClassSchedulePattern pattern : patterns) {
+                        String key = pattern.getStartTime() + "-" + pattern.getEndTime();
+                        Long count = subscriptionRepository.countByClazzIdAndDateAndStartTimeAndEndTimeAndActiveTrue(
+                                clazz.getId(),
+                                date,
+                                pattern.getStartTime(),
+                                pattern.getEndTime()
+                        );
+                        
+                        timeRangeMap.put(key, ClassDTO.TimeRange.builder()
+                                .startTime(pattern.getStartTime())
+                                .endTime(pattern.getEndTime())
+                                .subscriptionCount(count != null ? count.intValue() : 0)
+                                .build());
+                    }
+                    
+                    // Agregar horarios de suscripciones directas (pueden no tener patrón)
+                    for (ClassSubscription subscription : subscriptionsForDate) {
+                        String key = subscription.getStartTime() + "-" + subscription.getEndTime();
+                        if (!timeRangeMap.containsKey(key)) {
+                            Long count = subscriptionRepository.countByClazzIdAndDateAndStartTimeAndEndTimeAndActiveTrue(
+                                    clazz.getId(),
+                                    date,
+                                    subscription.getStartTime(),
+                                    subscription.getEndTime()
+                            );
+                            
+                            timeRangeMap.put(key, ClassDTO.TimeRange.builder()
+                                    .startTime(subscription.getStartTime())
+                                    .endTime(subscription.getEndTime())
+                                    .subscriptionCount(count != null ? count.intValue() : 0)
+                                    .build());
+                        }
+                    }
+                    
+                    // Convertir mapa a lista ordenada por hora de inicio
+                    List<ClassDTO.TimeRange> timeRanges = timeRangeMap.values().stream()
+                            .sorted(java.util.Comparator.comparing(ClassDTO.TimeRange::getStartTime))
+                            .collect(java.util.stream.Collectors.toList());
+                    
+                    // Si no hay horarios, retornar null (se filtrará después)
+                    if (timeRanges.isEmpty()) {
+                        return null;
+                    }
+                    
+                    // Contar total de suscripciones de la clase
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    
+                    return ClassDTO.ResponseWithDate.builder()
+                            .id(clazz.getId())
+                            .name(clazz.getName())
+                            .description(clazz.getDescription())
+                            .capacity(clazz.getCapacity())
+                            .active(clazz.getActive())
+                            .subscriptionCount(subscriptionCount != null ? subscriptionCount : 0)
+                            .branch(clazz.getBranch() != null ? BranchDto.Response.fromEntity(clazz.getBranch()) : null)
+                            .createdBy(clazz.getCreatedBy() != null ? UserDTO.SummaryResponse.fromEntity(clazz.getCreatedBy()) : null)
+                            .date(date)
+                            .dayOfWeek(dayOfWeek)
+                            .timeRanges(timeRanges)
+                            .createdAt(clazz.getCreatedAt())
+                            .updatedAt(clazz.getUpdatedAt())
+                            .build();
+                })
+                .filter(java.util.Objects::nonNull) // Filtrar clases sin horarios
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**

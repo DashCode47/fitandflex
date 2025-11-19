@@ -235,6 +235,33 @@ public class ClassController {
     }
 
     @Operation(
+        summary = "Obtener clases activas por fecha específica",
+        description = "Obtiene todas las clases activas con sus horarios para una fecha específica. " +
+                      "Expande los patrones recurrentes en instancias específicas para esa fecha."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de clases activas para la fecha obtenida exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = List.class)
+            )
+        )
+    })
+    @GetMapping("/active/date/{date}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<ClassDTO.ResponseWithDate>> getActiveClassesByDate(
+            @Parameter(description = "Fecha específica para consultar clases (formato yyyy-MM-dd)", example = "2025-11-18", required = true)
+            @PathVariable java.time.LocalDate date) {
+        log.info("Obteniendo clases activas para la fecha: {}", date);
+        
+        List<ClassDTO.ResponseWithDate> response = classService.getActiveClassesByDate(date);
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(
         summary = "Buscar clases por nombre",
         description = "Busca clases que contengan el nombre especificado (búsqueda case insensitive)"
     )
@@ -832,5 +859,63 @@ public class ClassController {
             "message", "Suscripción eliminada exitosamente",
             "subscriptionId", subscriptionId
         ));
+    }
+
+    @Operation(
+        summary = "Cancelar suscripción por usuario, clase y fecha",
+        description = "Cancela una suscripción activa identificándola por usuario, clase y fecha específica. " +
+                      "Marca la suscripción como inactiva. Si hay múltiples suscripciones para la misma fecha, " +
+                      "cancela la primera encontrada. Para cancelar una específica, usa startTime y endTime."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Suscripción cancelada exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = CommonDto.SuccessResponse.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Suscripción no encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @PutMapping("/{classId}/users/{userId}/cancel")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<CommonDto.SuccessResponse<ClassDTO.SubscriptionResponse>> cancelSubscriptionByUserClassAndDate(
+            @Parameter(description = "ID de la clase", example = "7", required = true)
+            @PathVariable Long classId,
+            @Parameter(description = "ID del usuario", example = "3", required = true)
+            @PathVariable Long userId,
+            @Parameter(description = "Fecha específica de la suscripción (formato yyyy-MM-dd)", example = "2025-11-19", required = true)
+            @RequestParam java.time.LocalDate date,
+            @Parameter(description = "Hora de inicio (opcional). Si se proporciona junto con endTime, cancela solo esa suscripción específica", example = "12:00:00")
+            @RequestParam(required = false) java.time.LocalTime startTime,
+            @Parameter(description = "Hora de fin (opcional). Debe proporcionarse junto con startTime", example = "13:30:00")
+            @RequestParam(required = false) java.time.LocalTime endTime) {
+        log.info("Cancelando suscripción para usuario {}, clase {} y fecha {}", userId, classId, date);
+        
+        ClassDTO.SubscriptionResponse subscription;
+        
+        // Si se proporcionan startTime y endTime, cancelar la suscripción específica
+        if (startTime != null && endTime != null) {
+            subscription = subscriptionService.cancelSubscriptionByUserClassDateAndTime(
+                    userId, classId, date, startTime, endTime);
+        } else {
+            // Si no, cancelar la primera suscripción encontrada para esa fecha
+            subscription = subscriptionService.cancelSubscriptionByUserClassAndDate(
+                    userId, classId, date);
+        }
+        
+        return ResponseEntity.ok(CommonDto.SuccessResponse.<ClassDTO.SubscriptionResponse>builder()
+                .success(true)
+                .message("Suscripción cancelada exitosamente")
+                .data(subscription)
+                .build());
     }
 }
