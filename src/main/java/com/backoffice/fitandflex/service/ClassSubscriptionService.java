@@ -33,8 +33,12 @@ public class ClassSubscriptionService {
 
     /**
      * Crear una nueva suscripción
+     * @param classId ID de la clase
+     * @param request Datos de la suscripción
+     * @param userBranchId ID de la sucursal del usuario (null si es SUPER_ADMIN)
+     * @param isSuperAdmin Indica si el usuario es SUPER_ADMIN
      */
-    public ClassDTO.SubscriptionResponse createSubscription(Long classId, ClassDTO.CreateSubscriptionRequest request) {
+    public ClassDTO.SubscriptionResponse createSubscription(Long classId, ClassDTO.CreateSubscriptionRequest request, Long userBranchId, boolean isSuperAdmin) {
         log.info("Creando suscripción para usuario {} en clase {}", request.getUserId(), classId);
 
         // Validar que el usuario existe
@@ -48,6 +52,13 @@ public class ClassSubscriptionService {
         // Validar que la clase está activa
         if (!clazz.getActive()) {
             throw new IllegalArgumentException("No se puede suscribir a clases inactivas");
+        }
+
+        // Validar que BRANCH_ADMIN solo puede crear suscripciones para clases de su branch
+        if (!isSuperAdmin && userBranchId != null && clazz.getBranch() != null) {
+            if (!clazz.getBranch().getId().equals(userBranchId)) {
+                throw new IllegalArgumentException("No se puede crear suscripciones para clases de otras sucursales");
+            }
         }
 
         // Validar que el rango de horas es válido
@@ -125,12 +136,24 @@ public class ClassSubscriptionService {
 
     /**
      * Obtener todas las suscripciones activas de una clase
+     * @param classId ID de la clase
+     * @param branchId ID de la sucursal para filtrar (null para obtener todas)
      */
     @Transactional(readOnly = true)
-    public List<ClassDTO.SubscriptionResponse> getSubscriptionsByClassId(Long classId) {
-        log.info("Obteniendo suscripciones activas de la clase: {}", classId);
+    public List<ClassDTO.SubscriptionResponse> getSubscriptionsByClassId(Long classId, Long branchId) {
+        log.info("Obteniendo suscripciones activas de la clase: {}, branchId: {}", classId, branchId);
         
         List<ClassSubscription> subscriptions = subscriptionRepository.findByClazzIdAndActiveTrue(classId);
+        
+        // Filtrar por branch si se proporciona
+        if (branchId != null) {
+            subscriptions = subscriptions.stream()
+                    .filter(sub -> sub.getClazz() != null && 
+                                 sub.getClazz().getBranch() != null && 
+                                 sub.getClazz().getBranch().getId().equals(branchId))
+                    .collect(Collectors.toList());
+        }
+        
         return subscriptions.stream()
                 .map(ClassDTO.SubscriptionResponse::fromEntity)
                 .collect(Collectors.toList());

@@ -1,6 +1,8 @@
 package com.backoffice.fitandflex.repository;
 
 import com.backoffice.fitandflex.entity.Class;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +15,11 @@ public interface ClassRepository extends JpaRepository<Class, Long> {
      * Buscar clases por sucursal
      */
     List<Class> findByBranchId(Long branchId);
+    
+    /**
+     * Buscar clases por sucursal con paginación
+     */
+    Page<Class> findByBranchId(Long branchId, Pageable pageable);
     
     /**
      * Buscar clases activas

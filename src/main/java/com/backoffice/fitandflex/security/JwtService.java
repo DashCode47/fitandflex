@@ -99,6 +99,59 @@ public class JwtService {
         return jwtExpirationMs;
     }
 
+    /**
+     * Extrae el branchId del token JWT
+     */
+    public Long extractBranchId(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            Object branchIdObj = claims.get("branchId");
+            if (branchIdObj == null) {
+                return null;
+            }
+            if (branchIdObj instanceof Integer) {
+                return ((Integer) branchIdObj).longValue();
+            }
+            if (branchIdObj instanceof Long) {
+                return (Long) branchIdObj;
+            }
+            if (branchIdObj instanceof Number) {
+                return ((Number) branchIdObj).longValue();
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Extrae los roles del token JWT
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.List<String> extractRoles(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            Object rolesObj = claims.get("roles");
+            if (rolesObj == null) {
+                return java.util.Collections.emptyList();
+            }
+            if (rolesObj instanceof java.util.List) {
+                return (java.util.List<String>) rolesObj;
+            }
+            return java.util.Collections.emptyList();
+        } catch (Exception e) {
+            return java.util.Collections.emptyList();
+        }
+    }
+
+    /**
+     * Verifica si el usuario tiene el rol SUPER_ADMIN
+     */
+    public boolean isSuperAdmin(String token) {
+        java.util.List<String> roles = extractRoles(token);
+        return roles.stream().anyMatch(role -> role.contains("SUPER_ADMIN"));
+    }
+
     private Claims parseClaims(String token){
         try {
             return Jwts.parserBuilder()

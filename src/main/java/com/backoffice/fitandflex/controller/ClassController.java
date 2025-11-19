@@ -20,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
+import com.backoffice.fitandflex.security.JwtService;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -38,6 +40,7 @@ public class ClassController {
 
     private final ClassService classService;
     private final ClassSubscriptionService subscriptionService;
+    private final JwtService jwtService;
     
     /**
      * Helper method para crear Pageable con validaciones
@@ -146,6 +149,7 @@ public class ClassController {
         )
     })
     @GetMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
     public ResponseEntity<Page<ClassDTO.Response>> getAllClasses(
             @Parameter(description = "Número de página (por defecto: 0)") 
             @RequestParam(defaultValue = "0") int page,
@@ -154,13 +158,35 @@ public class ClassController {
             @Parameter(description = "Campo por el cual ordenar (por defecto: 'name')") 
             @RequestParam(defaultValue = "name") String sort,
             @Parameter(description = "Dirección del ordenamiento (asc/desc, por defecto: 'asc')") 
-            @RequestParam(defaultValue = "asc") String direction) {
+            @RequestParam(defaultValue = "asc") String direction,
+            HttpServletRequest request) {
         log.info("Obteniendo todas las clases con paginación - page: {}, size: {}, sort: {}, direction: {}", 
                 page, size, sort, direction);
         
+        // Extraer token del header Authorization
+        String authHeader = request.getHeader("Authorization");
+        Long branchId = null;
+        boolean isSuperAdmin = false;
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            branchId = jwtService.extractBranchId(token);
+            isSuperAdmin = jwtService.isSuperAdmin(token);
+            log.info("Usuario con branchId: {}, es SUPER_ADMIN: {}", branchId, isSuperAdmin);
+        }
+        
         org.springframework.data.domain.Pageable pageable = createPageable(page, size, sort, direction);
         
-        Page<ClassDTO.Response> response = classService.getAllClasses(pageable);
+        // Si es SUPER_ADMIN, no filtrar por branch (pasar null)
+        // Si es BRANCH_ADMIN, filtrar por su branch
+        Long filterBranchId = isSuperAdmin ? null : branchId;
+        
+        Page<ClassDTO.Response> response;
+        if (filterBranchId != null) {
+            response = classService.getClassesByBranch(filterBranchId, pageable);
+        } else {
+            response = classService.getAllClasses(pageable);
+        }
         
         return ResponseEntity.ok(response);
     }
@@ -226,10 +252,32 @@ public class ClassController {
         )
     })
     @GetMapping("/active")
-    public ResponseEntity<List<ClassDTO.Response>> getActiveClasses() {
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
+    public ResponseEntity<List<ClassDTO.Response>> getActiveClasses(HttpServletRequest request) {
         log.info("Obteniendo clases activas");
         
-        List<ClassDTO.Response> response = classService.getActiveClasses();
+        // Extraer token del header Authorization
+        String authHeader = request.getHeader("Authorization");
+        Long branchId = null;
+        boolean isSuperAdmin = false;
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            branchId = jwtService.extractBranchId(token);
+            isSuperAdmin = jwtService.isSuperAdmin(token);
+            log.info("Usuario con branchId: {}, es SUPER_ADMIN: {}", branchId, isSuperAdmin);
+        }
+        
+        // Si es SUPER_ADMIN, no filtrar por branch (pasar null)
+        // Si es BRANCH_ADMIN, filtrar por su branch
+        Long filterBranchId = isSuperAdmin ? null : branchId;
+        
+        List<ClassDTO.Response> response;
+        if (filterBranchId != null) {
+            response = classService.getActiveClassesByBranch(filterBranchId);
+        } else {
+            response = classService.getActiveClasses();
+        }
         
         return ResponseEntity.ok(response);
     }
@@ -253,10 +301,27 @@ public class ClassController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
     public ResponseEntity<List<ClassDTO.ResponseWithDate>> getActiveClassesByDate(
             @Parameter(description = "Fecha específica para consultar clases (formato yyyy-MM-dd)", example = "2025-11-18", required = true)
-            @PathVariable java.time.LocalDate date) {
+            @PathVariable java.time.LocalDate date,
+            HttpServletRequest request) {
         log.info("Obteniendo clases activas para la fecha: {}", date);
         
-        List<ClassDTO.ResponseWithDate> response = classService.getActiveClassesByDate(date);
+        // Extraer token del header Authorization
+        String authHeader = request.getHeader("Authorization");
+        Long branchId = null;
+        boolean isSuperAdmin = false;
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            branchId = jwtService.extractBranchId(token);
+            isSuperAdmin = jwtService.isSuperAdmin(token);
+            log.info("Usuario con branchId: {}, es SUPER_ADMIN: {}", branchId, isSuperAdmin);
+        }
+        
+        // Si es SUPER_ADMIN, no filtrar por branch (pasar null)
+        // Si es BRANCH_ADMIN, filtrar por su branch
+        Long filterBranchId = isSuperAdmin ? null : branchId;
+        
+        List<ClassDTO.ResponseWithDate> response = classService.getActiveClassesByDate(date, filterBranchId);
         
         return ResponseEntity.ok(response);
     }
@@ -642,10 +707,31 @@ public class ClassController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
     public ResponseEntity<CommonDto.SuccessResponse<ClassDTO.SubscriptionResponse>> createSubscription(
             @PathVariable Long id,
-            @Valid @RequestBody ClassDTO.CreateSubscriptionRequest request) {
+            @Valid @RequestBody ClassDTO.CreateSubscriptionRequest request,
+            HttpServletRequest httpRequest) {
         log.info("Creando suscripción para usuario {} en clase {}", request.getUserId(), id);
         
-        ClassDTO.SubscriptionResponse subscription = subscriptionService.createSubscription(id, request);
+        // Extraer token del header Authorization para validar branch
+        String authHeader = httpRequest.getHeader("Authorization");
+        Long userBranchId = null;
+        boolean isSuperAdmin = false;
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            userBranchId = jwtService.extractBranchId(token);
+            isSuperAdmin = jwtService.isSuperAdmin(token);
+        }
+        
+        // Validar que BRANCH_ADMIN solo puede crear suscripciones para clases de su branch
+        if (!isSuperAdmin && userBranchId != null) {
+            ClassDTO.Response classResponse = classService.getClassById(id);
+            if (classResponse.getBranch() == null || !classResponse.getBranch().getId().equals(userBranchId)) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                    "No tiene permiso para crear suscripciones en clases de otras sucursales");
+            }
+        }
+        
+        ClassDTO.SubscriptionResponse subscription = subscriptionService.createSubscription(id, request, userBranchId, isSuperAdmin);
         
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CommonDto.SuccessResponse.<ClassDTO.SubscriptionResponse>builder()
@@ -671,10 +757,27 @@ public class ClassController {
     })
     @GetMapping("/{id}/subscriptions")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN', 'USER')")
-    public ResponseEntity<List<ClassDTO.SubscriptionResponse>> getSubscriptionsByClassId(@PathVariable Long id) {
+    public ResponseEntity<List<ClassDTO.SubscriptionResponse>> getSubscriptionsByClassId(
+            @PathVariable Long id,
+            HttpServletRequest request) {
         log.info("Obteniendo suscripciones de la clase: {}", id);
         
-        List<ClassDTO.SubscriptionResponse> subscriptions = subscriptionService.getSubscriptionsByClassId(id);
+        // Extraer token del header Authorization para filtrar por branch
+        String authHeader = request.getHeader("Authorization");
+        Long branchId = null;
+        boolean isSuperAdmin = false;
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            branchId = jwtService.extractBranchId(token);
+            isSuperAdmin = jwtService.isSuperAdmin(token);
+        }
+        
+        // Si es SUPER_ADMIN, no filtrar por branch (pasar null)
+        // Si es BRANCH_ADMIN, filtrar por su branch
+        Long filterBranchId = isSuperAdmin ? null : branchId;
+        
+        List<ClassDTO.SubscriptionResponse> subscriptions = subscriptionService.getSubscriptionsByClassId(id, filterBranchId);
         
         return ResponseEntity.ok(subscriptions);
     }

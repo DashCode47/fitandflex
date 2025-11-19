@@ -522,6 +522,7 @@ public class ClassDTO {
         private Long userId;
         private Long classId;
         private String className;
+        private BranchDto.Response branch;
         private LocalTime startTime;
         private LocalTime endTime;
         private java.time.LocalDate date;
@@ -538,6 +539,8 @@ public class ClassDTO {
                     .userId(subscription.getUser() != null ? subscription.getUser().getId() : null)
                     .classId(subscription.getClazz() != null ? subscription.getClazz().getId() : null)
                     .className(subscription.getClazz() != null ? subscription.getClazz().getName() : null)
+                    .branch(subscription.getClazz() != null && subscription.getClazz().getBranch() != null ? 
+                           BranchDto.Response.fromEntity(subscription.getClazz().getBranch()) : null)
                     .startTime(subscription.getStartTime())
                     .endTime(subscription.getEndTime())
                     .date(subscription.getDate())

@@ -174,6 +174,27 @@ public class ClassService {
     }
 
     /**
+     * Obtener clases por sucursal con paginación
+     */
+    @Transactional(readOnly = true)
+    public Page<ClassDTO.Response> getClassesByBranch(Long branchId, Pageable pageable) {
+        log.info("Obteniendo clases de la sucursal {} con paginación", branchId);
+        
+        Page<Class> classes = classRepository.findByBranchId(branchId, pageable);
+        
+        // Cargar patrones para cada clase (sin modificar la colección de la entidad)
+        List<ClassDTO.Response> responses = classes.getContent().stream()
+                .map(clazz -> {
+                    List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId());
+                    Integer subscriptionCount = subscriptionRepository.countActiveSubscriptionsByClassId(clazz.getId()).intValue();
+                    return ClassDTO.Response.fromEntity(clazz, patterns, subscriptionCount, subscriptionRepository);
+                })
+                .collect(java.util.stream.Collectors.toList());
+        
+        return new org.springframework.data.domain.PageImpl<>(responses, pageable, classes.getTotalElements());
+    }
+
+    /**
      * Obtener clases por sucursal
      */
     @Transactional(readOnly = true)
@@ -227,10 +248,12 @@ public class ClassService {
     /**
      * Obtener clases activas para una fecha específica
      * Incluye clases con patrones recurrentes para ese día Y clases con suscripciones directas para esa fecha
+     * @param date Fecha específica para consultar clases
+     * @param branchId ID de la sucursal para filtrar (null para obtener todas las sucursales)
      */
     @Transactional(readOnly = true)
-    public List<ClassDTO.ResponseWithDate> getActiveClassesByDate(java.time.LocalDate date) {
-        log.info("Obteniendo clases activas para la fecha: {}", date);
+    public List<ClassDTO.ResponseWithDate> getActiveClassesByDate(java.time.LocalDate date, Long branchId) {
+        log.info("Obteniendo clases activas para la fecha: {}, branchId: {}", date, branchId);
         
         // Calcular el día de la semana de la fecha (1=Lunes, 7=Domingo)
         int dayOfWeek = date.getDayOfWeek().getValue();
@@ -238,22 +261,30 @@ public class ClassService {
         // Obtener clases que tienen suscripciones para esta fecha específica
         List<Class> classesWithSubscriptions = subscriptionRepository.findClassesWithSubscriptionsForDate(date);
         
-        // Obtener todas las clases activas
-        List<Class> allActiveClasses = classRepository.findByActiveTrue();
+        // Obtener clases activas (filtrar por branch si se proporciona)
+        List<Class> allActiveClasses;
+        if (branchId != null) {
+            allActiveClasses = classRepository.findActiveClassesByBranchOrderedByName(branchId);
+        } else {
+            allActiveClasses = classRepository.findByActiveTrue();
+        }
         
         // Combinar ambas listas (sin duplicados)
         java.util.Set<Long> classIds = new java.util.HashSet<>();
         List<Class> relevantClasses = new java.util.ArrayList<>();
         
-        // Agregar clases con suscripciones
+        // Agregar clases con suscripciones (filtrar por branch si se proporciona)
         for (Class clazz : classesWithSubscriptions) {
             if (clazz.getActive() && !classIds.contains(clazz.getId())) {
-                classIds.add(clazz.getId());
-                relevantClasses.add(clazz);
+                // Si se especifica branchId, filtrar por branch
+                if (branchId == null || (clazz.getBranch() != null && clazz.getBranch().getId().equals(branchId))) {
+                    classIds.add(clazz.getId());
+                    relevantClasses.add(clazz);
+                }
             }
         }
         
-        // Agregar clases con patrones recurrentes para este día
+        // Agregar clases con patrones recurrentes para este día (ya filtradas por branch si aplica)
         for (Class clazz : allActiveClasses) {
             if (!classIds.contains(clazz.getId())) {
                 List<ClassSchedulePattern> patterns = schedulePatternRepository.findByClazzIdAndActiveTrue(clazz.getId())
