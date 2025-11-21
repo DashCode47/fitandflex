@@ -3,6 +3,7 @@ package com.backoffice.fitandflex.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -79,6 +80,17 @@ public class UserMembership {
     private String notes;
 
     /**
+     * Información de pago
+     */
+    @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "paid_amount", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    /**
      * Quién asignó la membresía
      */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -141,6 +153,38 @@ public class UserMembership {
     public void activate() {
         this.status = "ACTIVE";
         this.active = true;
+    }
+
+    /**
+     * Métodos relacionados con pagos
+     */
+    public BigDecimal getPendingAmount() {
+        if (totalAmount == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal pending = totalAmount.subtract(paidAmount != null ? paidAmount : BigDecimal.ZERO);
+        return pending.compareTo(BigDecimal.ZERO) > 0 ? pending : BigDecimal.ZERO;
+    }
+
+    public boolean isFullyPaid() {
+        return getPendingAmount().compareTo(BigDecimal.ZERO) == 0;
+    }
+
+    public void addPayment(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto del pago debe ser mayor a cero");
+        }
+        if (this.paidAmount == null) {
+            this.paidAmount = BigDecimal.ZERO;
+        }
+        if (this.totalAmount == null) {
+            this.totalAmount = BigDecimal.ZERO;
+        }
+        BigDecimal newPaidAmount = this.paidAmount.add(amount);
+        if (newPaidAmount.compareTo(this.totalAmount) > 0) {
+            throw new IllegalArgumentException("El monto pagado no puede exceder el monto total de la membresía");
+        }
+        this.paidAmount = newPaidAmount;
     }
 
     /**

@@ -557,4 +557,49 @@ public class UserMembershipController {
         
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * Registrar abono adicional a una membresía
+     */
+    @Operation(
+        summary = "Registrar abono adicional",
+        description = "Registra un pago adicional para una membresía, reduciendo el saldo pendiente."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Abono registrado exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = UserMembershipDTO.Response.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Datos inválidos o membresía ya pagada completamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "404",
+            description = "Membresía no encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @PostMapping("/{id}/payment")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('BRANCH_ADMIN')")
+    public ResponseEntity<UserMembershipDTO.Response> addPaymentToMembership(
+            @Parameter(description = "ID de la membresía") @PathVariable Long id,
+            @Valid @RequestBody UserMembershipDTO.AddPaymentRequest request) {
+        
+        log.info("Registrando abono de {} para membresía {}", request.getAmount(), id);
+        UserMembershipDTO.Response response = userMembershipService.addPaymentToMembership(id, request);
+        
+        return ResponseEntity.ok(response);
+    }
 }

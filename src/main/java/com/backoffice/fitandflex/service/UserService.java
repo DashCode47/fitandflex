@@ -3,6 +3,7 @@ package com.backoffice.fitandflex.service;
 import com.backoffice.fitandflex.dto.UserDTO;
 import com.backoffice.fitandflex.dto.UserClassDTO;
 import com.backoffice.fitandflex.dto.UserProductDTO;
+import com.backoffice.fitandflex.dto.UserMembershipDTO;
 import com.backoffice.fitandflex.entity.Branch;
 import com.backoffice.fitandflex.entity.Role;
 import com.backoffice.fitandflex.entity.User;
@@ -18,6 +19,7 @@ import com.backoffice.fitandflex.repository.UserRepository;
 import com.backoffice.fitandflex.repository.ReservationRepository;
 import com.backoffice.fitandflex.repository.PaymentRepository;
 import com.backoffice.fitandflex.repository.ScheduleRepository;
+import com.backoffice.fitandflex.repository.UserMembershipRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -44,6 +46,7 @@ public class UserService {
     private final ReservationRepository reservationRepository;
     private final PaymentRepository paymentRepository;
     private final ScheduleRepository scheduleRepository;
+    private final UserMembershipRepository userMembershipRepository;
 
     /**
      * Crear un nuevo usuario
@@ -96,7 +99,15 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + id));
         
-        return UserDTO.Response.fromEntity(user);
+        UserDTO.Response response = UserDTO.Response.fromEntity(user);
+        
+        // Obtener membresías del usuario
+        List<UserMembershipDTO.Response> memberships = userMembershipRepository.findByUserId(id).stream()
+                .map(UserMembershipDTO.Response::fromEntity)
+                .collect(java.util.stream.Collectors.toList());
+        response.setMemberships(memberships);
+        
+        return response;
     }
 
     /**
@@ -109,7 +120,15 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + email));
         
-        return UserDTO.Response.fromEntity(user);
+        UserDTO.Response response = UserDTO.Response.fromEntity(user);
+        
+        // Obtener membresías del usuario
+        List<UserMembershipDTO.Response> memberships = userMembershipRepository.findByUserId(user.getId()).stream()
+                .map(UserMembershipDTO.Response::fromEntity)
+                .collect(java.util.stream.Collectors.toList());
+        response.setMemberships(memberships);
+        
+        return response;
     }
 
     /**

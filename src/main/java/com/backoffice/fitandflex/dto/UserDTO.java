@@ -157,6 +157,7 @@ public class UserDTO {
         private BranchDto.Response branch;
         private Instant createdAt;
         private Instant updatedAt;
+        private java.util.List<UserMembershipDTO.Response> memberships;
 
         public static Response fromEntity(User user) {
             return Response.builder()

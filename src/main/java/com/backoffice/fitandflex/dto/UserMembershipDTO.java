@@ -2,11 +2,14 @@ package com.backoffice.fitandflex.dto;
 
 import com.backoffice.fitandflex.entity.UserMembership;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -32,6 +35,11 @@ public class UserMembershipDTO {
         
         @Schema(description = "Fecha de fin de la membresía", example = "2024-02-15T23:59:59", required = true)
         private LocalDateTime endDate;
+        
+        @Schema(description = "Monto inicial pagado (abono)", example = "50.00")
+        @DecimalMin(value = "0.00", message = "El abono inicial debe ser mayor o igual a cero")
+        @Digits(integer = 6, fraction = 2, message = "El abono debe tener máximo 6 dígitos enteros y 2 decimales")
+        private BigDecimal initialPayment;
         
         @Schema(description = "Notas adicionales", example = "Membresía premium asignada por promoción")
         private String notes;
@@ -132,6 +140,18 @@ public class UserMembershipDTO {
         
         @Schema(description = "Fecha de última actualización", example = "2024-01-20T15:30:00")
         private LocalDateTime updatedAt;
+        
+        @Schema(description = "Monto total de la membresía", example = "99.99")
+        private BigDecimal totalAmount;
+        
+        @Schema(description = "Monto pagado hasta ahora", example = "50.00")
+        private BigDecimal paidAmount;
+        
+        @Schema(description = "Saldo pendiente", example = "49.99")
+        private BigDecimal pendingAmount;
+        
+        @Schema(description = "Si está completamente pagada", example = "false")
+        private Boolean fullyPaid;
 
         public static Response fromEntity(UserMembership membership) {
             return Response.builder()
@@ -157,6 +177,10 @@ public class UserMembershipDTO {
                     .assignedBy(membership.getAssignedBy() != null ? membership.getAssignedBy().getEmail() : null)
                     .createdAt(membership.getCreatedAt())
                     .updatedAt(membership.getUpdatedAt())
+                    .totalAmount(membership.getTotalAmount())
+                    .paidAmount(membership.getPaidAmount())
+                    .pendingAmount(membership.getPendingAmount())
+                    .fullyPaid(membership.isFullyPaid())
                     .build();
         }
     }
@@ -225,5 +249,27 @@ public class UserMembershipDTO {
         
         @Schema(description = "Razón de la extensión", example = "Compensación por inconvenientes")
         private String reason;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Schema(description = "Request para registrar un abono adicional a una membresía")
+    public static class AddPaymentRequest {
+        
+        @Schema(description = "Monto del abono", example = "25.00", required = true)
+        @DecimalMin(value = "0.01", message = "El monto del abono debe ser mayor a cero")
+        @Digits(integer = 6, fraction = 2, message = "El monto debe tener máximo 6 dígitos enteros y 2 decimales")
+        private BigDecimal amount;
+        
+        @Schema(description = "Método de pago", example = "CASH", required = true)
+        private com.backoffice.fitandflex.entity.Payment.PaymentMethod paymentMethod;
+        
+        @Schema(description = "Descripción del pago", example = "Abono parcial de membresía")
+        private String description;
+        
+        @Schema(description = "ID de transacción (opcional)", example = "TXN123456")
+        private String transactionId;
     }
 }

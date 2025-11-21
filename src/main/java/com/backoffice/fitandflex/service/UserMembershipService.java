@@ -1,12 +1,15 @@
 package com.backoffice.fitandflex.service;
 
 import com.backoffice.fitandflex.dto.UserMembershipDTO;
+import com.backoffice.fitandflex.dto.PaymentDTO;
 import com.backoffice.fitandflex.entity.UserMembership;
 import com.backoffice.fitandflex.entity.User;
 import com.backoffice.fitandflex.entity.Product;
+import com.backoffice.fitandflex.entity.Payment;
 import com.backoffice.fitandflex.repository.UserMembershipRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
 import com.backoffice.fitandflex.repository.ProductRepository;
+import com.backoffice.fitandflex.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -14,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -30,6 +34,7 @@ public class UserMembershipService {
     private final UserMembershipRepository userMembershipRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final PaymentRepository paymentRepository;
 
     /**
      * Asignar membresía a usuario
@@ -64,6 +69,20 @@ public class UserMembershipService {
             throw new IllegalArgumentException("El usuario ya tiene una membresía activa de este producto");
         }
 
+        // Obtener el precio total del producto
+        BigDecimal totalAmount = product.getPrice();
+        if (totalAmount == null) {
+            totalAmount = BigDecimal.ZERO;
+        }
+
+        // Obtener el abono inicial (si se proporciona)
+        BigDecimal initialPayment = request.getInitialPayment() != null ? request.getInitialPayment() : BigDecimal.ZERO;
+        
+        // Validar que el abono inicial no exceda el precio total
+        if (initialPayment.compareTo(totalAmount) > 0) {
+            throw new IllegalArgumentException("El abono inicial no puede exceder el precio total de la membresía");
+        }
+
         // Crear la membresía
         UserMembership membership = UserMembership.builder()
                 .user(user)
@@ -74,10 +93,27 @@ public class UserMembershipService {
                 .active(true)
                 .notes(request.getNotes())
                 .assignedBy(assignedBy)
+                .totalAmount(totalAmount)
+                .paidAmount(initialPayment)
                 .build();
 
         UserMembership savedMembership = userMembershipRepository.save(membership);
-        log.info("Membresía asignada exitosamente con ID: {}", savedMembership.getId());
+        log.info("Membresía asignada exitosamente con ID: {}. Total: {}, Abono inicial: {}, Pendiente: {}", 
+                savedMembership.getId(), totalAmount, initialPayment, savedMembership.getPendingAmount());
+
+        // Si hay un abono inicial, crear un registro de pago
+        if (initialPayment.compareTo(BigDecimal.ZERO) > 0) {
+            Payment payment = Payment.builder()
+                    .user(user)
+                    .amount(initialPayment)
+                    .currency("USD")
+                    .paymentMethod(Payment.PaymentMethod.CASH) // Por defecto, se puede cambiar después
+                    .description("Abono inicial de membresía: " + product.getName())
+                    .status(Payment.PaymentStatus.COMPLETED)
+                    .build();
+            paymentRepository.save(payment);
+            log.info("Pago inicial registrado: {}", payment.getId());
+        }
 
         return UserMembershipDTO.Response.fromEntity(savedMembership);
     }
@@ -332,5 +368,52 @@ public class UserMembershipService {
         return memberships.stream()
                 .map(UserMembershipDTO.SummaryResponse::fromEntity)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Registrar un abono adicional a una membresía
+     */
+    public UserMembershipDTO.Response addPaymentToMembership(Long membershipId, UserMembershipDTO.AddPaymentRequest request) {
+        log.info("Registrando abono de {} para membresía {}", request.getAmount(), membershipId);
+        
+        // Obtener la membresía
+        UserMembership membership = userMembershipRepository.findById(membershipId)
+                .orElseThrow(() -> new IllegalArgumentException("Membresía no encontrada: " + membershipId));
+        
+        // Validar que la membresía no esté completamente pagada
+        if (membership.isFullyPaid()) {
+            throw new IllegalArgumentException("La membresía ya está completamente pagada");
+        }
+        
+        // Validar que el monto del abono no exceda el saldo pendiente
+        BigDecimal pendingAmount = membership.getPendingAmount();
+        if (request.getAmount().compareTo(pendingAmount) > 0) {
+            throw new IllegalArgumentException("El monto del abono (" + request.getAmount() + 
+                    ") excede el saldo pendiente (" + pendingAmount + ")");
+        }
+        
+        // Agregar el pago a la membresía
+        membership.addPayment(request.getAmount());
+        
+        // Guardar la membresía actualizada
+        UserMembership updatedMembership = userMembershipRepository.save(membership);
+        log.info("Abono registrado. Nuevo saldo pagado: {}, Pendiente: {}", 
+                updatedMembership.getPaidAmount(), updatedMembership.getPendingAmount());
+        
+        // Crear registro de pago
+        Payment payment = Payment.builder()
+                .user(membership.getUser())
+                .amount(request.getAmount())
+                .currency("USD")
+                .paymentMethod(request.getPaymentMethod())
+                .description(request.getDescription() != null ? request.getDescription() : 
+                        "Abono adicional de membresía: " + membership.getProduct().getName())
+                .transactionId(request.getTransactionId())
+                .status(Payment.PaymentStatus.COMPLETED)
+                .build();
+        paymentRepository.save(payment);
+        log.info("Pago registrado con ID: {}", payment.getId());
+        
+        return UserMembershipDTO.Response.fromEntity(updatedMembership);
     }
 }
