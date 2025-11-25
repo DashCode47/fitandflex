@@ -151,7 +151,15 @@ public class UserService {
         
         List<User> users = userRepository.findByBranchId(branchId);
         return users.stream()
-                .map(UserDTO.Response::fromEntity)
+                .map(user -> {
+                    UserDTO.Response response = UserDTO.Response.fromEntity(user);
+                    // Obtener membresías del usuario
+                    List<UserMembershipDTO.Response> memberships = userMembershipRepository.findByUserId(user.getId()).stream()
+                            .map(UserMembershipDTO.Response::fromEntity)
+                            .collect(java.util.stream.Collectors.toList());
+                    response.setMemberships(memberships);
+                    return response;
+                })
                 .toList();
     }
 

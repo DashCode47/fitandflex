@@ -358,6 +358,45 @@ public class UserMembershipService {
     }
 
     /**
+     * Verificar si usuario tiene pagos pendientes
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> hasPendingPayments(Long userId) {
+        log.info("Verificando si usuario {} tiene pagos pendientes", userId);
+        
+        List<UserMembership> memberships = userMembershipRepository.findByUserId(userId);
+        
+        BigDecimal totalPendingAmount = BigDecimal.ZERO;
+        int membershipsWithPendingPayment = 0;
+        List<Map<String, Object>> pendingMemberships = new java.util.ArrayList<>();
+        
+        for (UserMembership membership : memberships) {
+            BigDecimal pendingAmount = membership.getPendingAmount();
+            if (pendingAmount.compareTo(BigDecimal.ZERO) > 0) {
+                totalPendingAmount = totalPendingAmount.add(pendingAmount);
+                membershipsWithPendingPayment++;
+                pendingMemberships.add(Map.of(
+                    "membershipId", membership.getId(),
+                    "productName", membership.getProduct().getName(),
+                    "pendingAmount", pendingAmount,
+                    "totalAmount", membership.getTotalAmount(),
+                    "paidAmount", membership.getPaidAmount()
+                ));
+            }
+        }
+        
+        boolean hasPendingPayments = totalPendingAmount.compareTo(BigDecimal.ZERO) > 0;
+        
+        return Map.of(
+            "userId", userId,
+            "hasPendingPayments", hasPendingPayments,
+            "totalPendingAmount", totalPendingAmount,
+            "membershipsWithPendingPayment", membershipsWithPendingPayment,
+            "pendingMemberships", pendingMemberships
+        );
+    }
+
+    /**
      * Obtener resumen de membresías por usuario
      */
     @Transactional(readOnly = true)
