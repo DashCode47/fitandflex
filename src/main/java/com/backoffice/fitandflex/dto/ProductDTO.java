@@ -107,6 +107,13 @@ public class ProductDTO {
         )
         private Integer maxUsers;
 
+        @Min(value = 1, message = "El número de clases debe ser al menos 1")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Número de clases incluidas en la membresía (null = ilimitadas)",
+            example = "12"
+        )
+        private Integer numberOfClasses;
+
         @io.swagger.v3.oas.annotations.media.Schema(
             description = "Si la membresía está activa",
             example = "true"
@@ -154,6 +161,12 @@ public class ProductDTO {
             example = "1"
         )
         private Long branchId;
+
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "ID de la clase asociada al producto (opcional)",
+            example = "1"
+        )
+        private Long classId;
     }
 
     /**
@@ -234,6 +247,13 @@ public class ProductDTO {
             example = "2"
         )
         private Integer maxUsers;
+
+        @Min(value = 1, message = "El número de clases debe ser al menos 1")
+        @io.swagger.v3.oas.annotations.media.Schema(
+            description = "Número de clases incluidas en la membresía (null = ilimitadas)",
+            example = "12"
+        )
+        private Integer numberOfClasses;
 
         @io.swagger.v3.oas.annotations.media.Schema(
             description = "Si la membresía está activa",
@@ -326,6 +346,7 @@ public class ProductDTO {
         private BigDecimal price;
         private Integer durationDays;
         private Integer maxUsers;
+        private Integer numberOfClasses;
         private Boolean active;
         private Boolean autoRenewal;
         private Integer trialPeriodDays;
@@ -338,10 +359,31 @@ public class ProductDTO {
         private Boolean hasTrialPeriod;
         private Boolean supportsAutoRenewal;
         private Boolean isUnlimitedUsers;
+        private Boolean isUnlimitedClasses;
         private String membershipTypeDisplay;
         private String durationDisplay;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
+        
+        // Clase asociada al producto
+        private ClassResponse associatedClass;
+    }
+
+    /**
+     * Response de la clase asociada al producto
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @io.swagger.v3.oas.annotations.media.Schema(description = "Información de la clase asociada al producto")
+    public static class ClassResponse {
+        private Long id;
+        private String name;
+        private String description;
+        private Integer capacity;
+        private Boolean active;
+        private LocalDateTime createdAt;
     }
 
     /**
@@ -393,6 +435,7 @@ public class ProductDTO {
                 .price(product.getPrice())
                 .durationDays(product.getDurationDays())
                 .maxUsers(product.getMaxUsers())
+                .numberOfClasses(product.getNumberOfClasses())
                 .active(product.getActive())
                 .autoRenewal(product.getAutoRenewal())
                 .trialPeriodDays(product.getTrialPeriodDays())
@@ -405,10 +448,19 @@ public class ProductDTO {
                 .hasTrialPeriod(product.hasTrialPeriod())
                 .supportsAutoRenewal(product.supportsAutoRenewal())
                 .isUnlimitedUsers(product.isUnlimitedUsers())
+                .isUnlimitedClasses(product.getNumberOfClasses() == null)
                 .membershipTypeDisplay(product.getMembershipTypeDisplay())
                 .durationDisplay(product.getDurationDisplay())
                 .createdAt(product.getCreatedAt() != null ? product.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime() : null)
                 .updatedAt(product.getUpdatedAt() != null ? product.getUpdatedAt().atZone(java.time.ZoneId.systemDefault()).toLocalDateTime() : null)
+                .associatedClass(product.getAssociatedClass() != null ? ClassResponse.builder()
+                        .id(product.getAssociatedClass().getId())
+                        .name(product.getAssociatedClass().getName())
+                        .description(product.getAssociatedClass().getDescription())
+                        .capacity(product.getAssociatedClass().getCapacity())
+                        .active(product.getAssociatedClass().getActive())
+                        .createdAt(product.getAssociatedClass().getCreatedAt())
+                        .build() : null)
                 .build();
     }
 

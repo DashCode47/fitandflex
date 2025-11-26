@@ -62,6 +62,9 @@ public class Product {
     @Column(name = "max_users")
     private Integer maxUsers; // Máximo número de usuarios que pueden usar esta membresía
 
+    @Column(name = "number_of_classes")
+    private Integer numberOfClasses; // Número de clases incluidas en la membresía (null = ilimitadas)
+
     /**
      * Estado y configuración
      */
@@ -94,6 +97,13 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id", nullable = false, foreignKey = @ForeignKey(name = "fk_product_branch"))
     private Branch branch;
+
+    /**
+     * Clase asociada al producto (opcional)
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id", foreignKey = @ForeignKey(name = "fk_product_class"))
+    private Class associatedClass;
 
     /**
      * Timestamps

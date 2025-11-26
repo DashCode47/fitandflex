@@ -3,8 +3,10 @@ package com.backoffice.fitandflex.service;
 import com.backoffice.fitandflex.dto.CommonDto;
 import com.backoffice.fitandflex.dto.ProductDTO;
 import com.backoffice.fitandflex.entity.Branch;
+import com.backoffice.fitandflex.entity.Class;
 import com.backoffice.fitandflex.entity.Product;
 import com.backoffice.fitandflex.repository.BranchRepository;
+import com.backoffice.fitandflex.repository.ClassRepository;
 import com.backoffice.fitandflex.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +31,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final BranchRepository branchRepository;
+    private final ClassRepository classRepository;
 
     /**
      * Crear una nueva membresía
@@ -45,6 +48,20 @@ public class ProductService {
             throw new IllegalArgumentException("Ya existe una membresía con SKU '" + request.getSku() + "' en esta sucursal");
         }
 
+        // Buscar la clase asociada si se proporciona el ID
+        Class associatedClass = null;
+        if (request.getClassId() != null) {
+            associatedClass = classRepository.findById(request.getClassId())
+                    .orElseThrow(() -> new IllegalArgumentException("Clase no encontrada con ID: " + request.getClassId()));
+            
+            // Validar que la clase pertenece a la misma sucursal
+            if (!associatedClass.getBranch().getId().equals(branch.getId())) {
+                throw new IllegalArgumentException("La clase debe pertenecer a la misma sucursal que el producto");
+            }
+            
+            log.info("Asociando clase '{}' (ID: {}) al producto", associatedClass.getName(), associatedClass.getId());
+        }
+
         // Crear la membresía
         Product product = Product.builder()
                 .name(request.getName())
@@ -55,6 +72,7 @@ public class ProductService {
                 .price(request.getPrice())
                 .durationDays(request.getDurationDays())
                 .maxUsers(request.getMaxUsers())
+                .numberOfClasses(request.getNumberOfClasses())
                 .active(request.getActive())
                 .autoRenewal(request.getAutoRenewal())
                 .trialPeriodDays(request.getTrialPeriodDays())
@@ -62,10 +80,12 @@ public class ProductService {
                 .benefits(request.getBenefits())
                 .features(request.getFeatures())
                 .branch(branch)
+                .associatedClass(associatedClass)
                 .build();
 
         Product savedProduct = productRepository.save(product);
-        log.info("Membresía creada exitosamente con ID: {}", savedProduct.getId());
+        log.info("Membresía creada exitosamente con ID: {}{}", savedProduct.getId(), 
+                associatedClass != null ? " con clase asociada: " + associatedClass.getName() : "");
 
         return ProductDTO.fromEntity(savedProduct);
     }
@@ -392,6 +412,9 @@ public class ProductService {
         }
         if (request.getMaxUsers() != null) {
             product.setMaxUsers(request.getMaxUsers());
+        }
+        if (request.getNumberOfClasses() != null) {
+            product.setNumberOfClasses(request.getNumberOfClasses());
         }
         if (request.getActive() != null) {
             product.setActive(request.getActive());
