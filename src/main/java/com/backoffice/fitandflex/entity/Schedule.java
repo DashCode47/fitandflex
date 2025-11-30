@@ -8,7 +8,14 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "schedules")
+@Table(
+        name = "schedules",
+        indexes = {
+                @Index(name = "idx_schedule_class", columnList = "class_id"),
+                @Index(name = "idx_schedule_active", columnList = "active"),
+                @Index(name = "idx_schedule_times", columnList = "start_time, end_time")
+        }
+)
 @Data
 @Builder
 @AllArgsConstructor

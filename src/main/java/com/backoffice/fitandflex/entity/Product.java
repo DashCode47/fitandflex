@@ -15,6 +15,7 @@ import java.time.Instant;
         indexes = {
                 @Index(name = "idx_product_name", columnList = "name"),
                 @Index(name = "idx_product_branch", columnList = "branch_id"),
+                @Index(name = "idx_product_class", columnList = "class_id"),
                 @Index(name = "idx_product_category", columnList = "category"),
                 @Index(name = "idx_product_active", columnList = "active")
         }

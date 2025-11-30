@@ -11,13 +11,21 @@ import java.time.LocalTime;
  * Entidad que representa una suscripción/reserva de un usuario a una clase
  */
 @Entity
-@Table(name = "class_subscriptions", 
-       uniqueConstraints = {
-           @UniqueConstraint(
-               name = "uk_class_subscription_user_class_day_date_time", 
-               columnNames = {"user_id", "class_id", "day_of_week", "date", "start_time", "end_time"}
-           )
-       })
+@Table(
+        name = "class_subscriptions", 
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_class_subscription_user_class_day_date_time", 
+                        columnNames = {"user_id", "class_id", "day_of_week", "date", "start_time", "end_time"}
+                )
+        },
+        indexes = {
+                @Index(name = "idx_class_subscription_user", columnList = "user_id"),
+                @Index(name = "idx_class_subscription_class", columnList = "class_id"),
+                @Index(name = "idx_class_subscription_active", columnList = "active"),
+                @Index(name = "idx_class_subscription_day", columnList = "day_of_week")
+        }
+)
 @Data
 @Builder
 @AllArgsConstructor

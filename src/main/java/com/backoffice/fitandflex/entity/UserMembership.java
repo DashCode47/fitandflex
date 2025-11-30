@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_user_membership_user", columnList = "user_id"),
                 @Index(name = "idx_user_membership_product", columnList = "product_id"),
+                @Index(name = "idx_user_membership_assigned_by", columnList = "assigned_by"),
                 @Index(name = "idx_user_membership_status", columnList = "status"),
                 @Index(name = "idx_user_membership_active", columnList = "active"),
                 @Index(name = "idx_user_membership_dates", columnList = "start_date, end_date")
