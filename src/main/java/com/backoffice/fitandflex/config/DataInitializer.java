@@ -6,6 +6,7 @@ import com.backoffice.fitandflex.repository.RoleRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,12 @@ public class DataInitializer {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.admin.email:admin@fitandflex.com}")
+    private String adminEmail;
+
+    @Value("${app.admin.password:#{null}}")
+    private String adminPassword;
 
     @PostConstruct
     @Transactional
@@ -54,26 +61,30 @@ public class DataInitializer {
     }
 
     private void createSuperAdminIfNotExists() {
-        String superAdminEmail = "admin@fitandflex.com";
-        
-        if (!userRepository.existsByEmail(superAdminEmail)) {
+        if (!userRepository.existsByEmail(adminEmail)) {
+            // En producción, ADMIN_PASSWORD debe estar configurado
+            if (adminPassword == null || adminPassword.isBlank()) {
+                log.warn("⚠️ ADMIN_PASSWORD no configurado. Usuario SUPER_ADMIN no será creado automáticamente.");
+                log.warn("Configure las variables de entorno: ADMIN_EMAIL y ADMIN_PASSWORD");
+                return;
+            }
+
             Role superAdminRole = roleRepository.findByName("SUPER_ADMIN")
                     .orElseThrow(() -> new RuntimeException("Rol SUPER_ADMIN no encontrado"));
             
             User superAdmin = User.builder()
                     .name("Super Administrador")
-                    .email(superAdminEmail)
-                    .password(passwordEncoder.encode("admin123"))
+                    .email(adminEmail)
+                    .password(passwordEncoder.encode(adminPassword))
                     .phone("+1234567890")
-                    .gender("M")
                     .active(true)
                     .role(superAdminRole)
                     .build();
             
             userRepository.save(superAdmin);
-            log.info("Usuario SUPER_ADMIN creado: {}", superAdminEmail);
+            log.info("✅ Usuario SUPER_ADMIN creado: {}", adminEmail);
         } else {
-            log.info("Usuario SUPER_ADMIN ya existe");
+            log.info("Usuario SUPER_ADMIN ya existe: {}", adminEmail);
         }
     }
 

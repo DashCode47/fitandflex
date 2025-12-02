@@ -10,10 +10,12 @@ import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.util.List;
 
 @Configuration
+@Profile("!prod") // Swagger deshabilitado en producción
 public class OpenApiConfig {
 
     @Value("${server.port:8080}")
@@ -38,7 +40,7 @@ public class OpenApiConfig {
                                 .url("http://localhost:" + serverPort)
                                 .description("Servidor de desarrollo"),
                         new Server()
-                                .url("https://fitandflex.onrender.com/")
+                                .url("https://fitandflex-production.up.railway.app/")
                                 .description("Servidor de producción")))
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new io.swagger.v3.oas.models.Components()

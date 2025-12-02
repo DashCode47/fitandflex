@@ -1,114 +1,186 @@
 package com.backoffice.fitandflex.exception;
 
-import com.backoffice.fitandflex.dto.CommonDto;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Manejador global de excepciones para proporcionar respuestas de error detalladas
+ * Manejador global de excepciones para producción.
+ * Evita exponer stack traces y detalles internos a los usuarios.
  */
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
+
     /**
-     * Maneja errores de acceso denegado (403)
+     * Estructura estándar de respuesta de error
      */
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<CommonDto.SuccessResponse<Object>> handleAccessDenied(AccessDeniedException ex) {
-        log.warn("Access denied: {}", ex.getMessage());
-        
-        return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(CommonDto.SuccessResponse.builder()
-                        .success(false)
-                        .message("Acceso denegado")
-                        .data(new ErrorDetail("ACCESS_DENIED", ex.getMessage(), "Verifica que tengas los permisos necesarios"))
-                        .build());
+    private Map<String, Object> buildErrorResponse(HttpStatus status, String message, String path) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", Instant.now().toString());
+        error.put("status", status.value());
+        error.put("error", status.getReasonPhrase());
+        error.put("message", message);
+        error.put("path", path);
+        return error;
     }
 
     /**
-     * Maneja errores de autenticación (401)
+     * Errores de validación (400 Bad Request)
      */
-    @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<CommonDto.SuccessResponse<Object>> handleAuthentication(AuthenticationException ex) {
-        log.warn("Authentication failed: {}", ex.getMessage());
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, Object>> handleValidationExceptions(
+            MethodArgumentNotValidException ex, WebRequest request) {
         
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(CommonDto.SuccessResponse.builder()
-                        .success(false)
-                        .message("Error de autenticación")
-                        .data(new ErrorDetail("AUTHENTICATION_FAILED", ex.getMessage(), "Token inválido o expirado"))
-                        .build());
+        Map<String, String> fieldErrors = new HashMap<>();
+        ex.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            fieldErrors.put(fieldName, errorMessage);
+        });
+
+        Map<String, Object> response = buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                "Error de validación",
+                request.getDescription(false).replace("uri=", "")
+        );
+        response.put("fieldErrors", fieldErrors);
+
+        return ResponseEntity.badRequest().body(response);
     }
 
     /**
-     * Maneja credenciales incorrectas
-     */
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<CommonDto.SuccessResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
-        log.warn("Bad credentials: {}", ex.getMessage());
-        
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(CommonDto.SuccessResponse.builder()
-                        .success(false)
-                        .message("Credenciales incorrectas")
-                        .data(new ErrorDetail("BAD_CREDENTIALS", ex.getMessage(), "Email o contraseña incorrectos"))
-                        .build());
-    }
-
-    /**
-     * Maneja errores de validación
+     * Argumentos ilegales (400 Bad Request)
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<CommonDto.SuccessResponse<Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        log.warn("Validation error: {}", ex.getMessage());
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(
+            IllegalArgumentException ex, WebRequest request) {
         
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(CommonDto.SuccessResponse.builder()
-                        .success(false)
-                        .message("Error de validación")
-                        .data(new ErrorDetail("VALIDATION_ERROR", ex.getMessage(), "Verifica los datos enviados"))
-                        .build());
+        log.warn("IllegalArgumentException: {}", ex.getMessage());
+        
+        return ResponseEntity.badRequest().body(
+                buildErrorResponse(
+                        HttpStatus.BAD_REQUEST,
+                        ex.getMessage(),
+                        request.getDescription(false).replace("uri=", "")
+                )
+        );
     }
 
     /**
-     * Maneja errores generales
+     * Credenciales inválidas (401 Unauthorized)
+     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, Object>> handleBadCredentials(
+            BadCredentialsException ex, WebRequest request) {
+        
+        log.warn("Intento de login fallido: {}", ex.getMessage());
+        
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                buildErrorResponse(
+                        HttpStatus.UNAUTHORIZED,
+                        "Credenciales inválidas",
+                        request.getDescription(false).replace("uri=", "")
+                )
+        );
+    }
+
+    /**
+     * Error de autenticación genérico (401 Unauthorized)
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<Map<String, Object>> handleAuthentication(
+            AuthenticationException ex, WebRequest request) {
+        
+        log.warn("Error de autenticación: {}", ex.getMessage());
+        
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                buildErrorResponse(
+                        HttpStatus.UNAUTHORIZED,
+                        "No autenticado",
+                        request.getDescription(false).replace("uri=", "")
+                )
+        );
+    }
+
+    /**
+     * Acceso denegado (403 Forbidden)
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(
+            AccessDeniedException ex, WebRequest request) {
+        
+        log.warn("Acceso denegado: {}", ex.getMessage());
+        
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                buildErrorResponse(
+                        HttpStatus.FORBIDDEN,
+                        "No tienes permiso para acceder a este recurso",
+                        request.getDescription(false).replace("uri=", "")
+                )
+        );
+    }
+
+    /**
+     * Recurso no encontrado (404 Not Found)
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleResourceNotFound(
+            ResourceNotFoundException ex, WebRequest request) {
+        
+        log.info("Recurso no encontrado: {}", ex.getMessage());
+        
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                buildErrorResponse(
+                        HttpStatus.NOT_FOUND,
+                        ex.getMessage(),
+                        request.getDescription(false).replace("uri=", "")
+                )
+        );
+    }
+
+    /**
+     * Cualquier otra excepción (500 Internal Server Error)
+     * En producción NO expone detalles del error
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<CommonDto.SuccessResponse<Object>> handleGeneric(Exception ex) {
-        log.error("Unexpected error: ", ex);
+    public ResponseEntity<Map<String, Object>> handleAllUncaughtException(
+            Exception ex, WebRequest request) {
         
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(CommonDto.SuccessResponse.builder()
-                        .success(false)
-                        .message("Error interno del servidor")
-                        .data(new ErrorDetail("INTERNAL_ERROR", ex.getMessage(), "Contacta al administrador"))
-                        .build());
-    }
-
-    /**
-     * Clase para detalles de error
-     */
-    public static class ErrorDetail {
-        private String code;
-        private String message;
-        private String suggestion;
-
-        public ErrorDetail(String code, String message, String suggestion) {
-            this.code = code;
-            this.message = message;
-            this.suggestion = suggestion;
+        // Siempre loguear el error completo para debugging
+        log.error("Error no manejado: ", ex);
+        
+        String message;
+        if ("prod".equals(activeProfile)) {
+            // En producción, no exponer detalles
+            message = "Ha ocurrido un error interno. Por favor, intente más tarde.";
+        } else {
+            // En desarrollo, mostrar el mensaje de error
+            message = ex.getMessage() != null ? ex.getMessage() : "Error interno del servidor";
         }
-
-        // Getters
-        public String getCode() { return code; }
-        public String getMessage() { return message; }
-        public String getSuggestion() { return suggestion; }
+        
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                buildErrorResponse(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        message,
+                        request.getDescription(false).replace("uri=", "")
+                )
+        );
     }
 }

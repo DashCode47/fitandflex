@@ -18,18 +18,18 @@ services:
       - fitandflex-network
     restart: unless-stopped
 
-  # Redis para caché y rate limiting
-  redis:
-    image: redis:7-alpine
-    container_name: fitandflex-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - fitandflex-network
-    restart: unless-stopped
-    command: redis-server --appendonly yes
+  # Redis para caché y rate limiting (OPCIONAL - descomentar cuando se implemente)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: fitandflex-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - fitandflex-network
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
 
   # Aplicación Spring Boot
   app:
@@ -40,7 +40,7 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/fitandflex_prod
       DATABASE_USERNAME: fitandflex_prod
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
-      REDIS_URL: redis://redis:6379
+      # REDIS_URL: redis://redis:6379  # Descomentar cuando se implemente Redis
       JWT_SECRET: ${JWT_SECRET}
       APP_JWT_SECRET: ${APP_JWT_SECRET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
@@ -49,7 +49,7 @@ services:
       - "8080:8080"
     depends_on:
       - postgres
-      - redis
+      # - redis  # Descomentar cuando se implemente Redis
     networks:
       - fitandflex-network
     restart: unless-stopped
@@ -78,7 +78,7 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  # redis_data:  # Descomentar cuando se implemente Redis
 
 networks:
   fitandflex-network:

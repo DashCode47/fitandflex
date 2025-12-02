@@ -57,11 +57,27 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api", "/api/auth/login", "/api/auth/logout", "/api/users/test", "/api/branches/test", "/api/reservations/test", "/api/payments/test", "/api/products/test", "/actuator/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger-ui/index.html", "/webjars/**", "/favicon.ico").permitAll()
+                        // Endpoints públicos - autenticación
+                        .requestMatchers("/", "/api", "/api/auth/login", "/api/auth/logout").permitAll()
+                        // Actuator - solo health público, el resto requiere auth
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")
+                        // Swagger/OpenAPI - solo en desarrollo (deshabilitado en prod via properties)
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/swagger-ui/index.html", "/webjars/**").permitAll()
+                        // Recursos estáticos
+                        .requestMatchers("/favicon.ico", "/error").permitAll()
+                        // Todo lo demás requiere autenticación
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+                // Security headers
+                .headers(headers -> headers
+                        .contentTypeOptions(contentType -> {})
+                        .frameOptions(frame -> frame.deny())
+                        .xssProtection(xss -> xss.disable()) // Modern browsers have built-in XSS protection
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; frame-ancestors 'none';"))
+                );
 
         return http.build();
     }
