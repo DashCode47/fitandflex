@@ -6,6 +6,7 @@ import com.backoffice.fitandflex.entity.Reservation;
 import com.backoffice.fitandflex.entity.ReservationStatus;
 import com.backoffice.fitandflex.entity.Schedule;
 import com.backoffice.fitandflex.entity.User;
+import com.backoffice.fitandflex.repository.BranchRepository;
 import com.backoffice.fitandflex.repository.ReservationRepository;
 import com.backoffice.fitandflex.repository.ScheduleRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
@@ -32,6 +33,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final UserRepository userRepository;
     private final ScheduleRepository scheduleRepository;
+    private final BranchRepository branchRepository;
 
     /**
      * Crear una nueva reserva
@@ -172,7 +174,18 @@ public class ReservationService {
     public Page<ReservationDTO.Response> getReservationsByBranch(Long branchId, Pageable pageable) {
         log.info("Obteniendo reservas para sucursal {} con paginación: {}", branchId, pageable);
         
+        // Validar que la sucursal existe
+        if (!branchRepository.existsById(branchId)) {
+            throw new IllegalArgumentException("Sucursal no encontrada con ID: " + branchId);
+        }
+        
+        // Contar total para debugging
+        long totalCount = reservationRepository.countByBranchId(branchId);
+        log.debug("Total de reservas encontradas para branch {}: {}", branchId, totalCount);
+        
         Page<Reservation> reservations = reservationRepository.findByBranchId(branchId, pageable);
+        log.info("Reservas obtenidas: {} de {}", reservations.getNumberOfElements(), reservations.getTotalElements());
+        
         return reservations.map(ReservationDTO::fromEntity);
     }
 

@@ -3,6 +3,9 @@ package com.backoffice.fitandflex.repository;
 import com.backoffice.fitandflex.entity.ClassSubscription;
 import com.backoffice.fitandflex.entity.User;
 import com.backoffice.fitandflex.entity.Class;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -199,5 +202,62 @@ public interface ClassSubscriptionRepository extends JpaRepository<ClassSubscrip
             @Param("date") LocalDate date,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
+
+    /**
+     * Buscar suscripciones por sucursal (a través de la clase)
+     * Carga las relaciones necesarias para evitar LazyInitializationException
+     */
+    @EntityGraph(attributePaths = {"user", "clazz", "clazz.branch"})
+    @Query("SELECT DISTINCT cs FROM ClassSubscription cs " +
+           "JOIN cs.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId")
+    List<ClassSubscription> findByBranchId(@Param("branchId") Long branchId);
+
+    /**
+     * Buscar suscripciones por sucursal con paginación
+     */
+    @Query("SELECT cs FROM ClassSubscription cs " +
+           "JOIN cs.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId")
+    Page<ClassSubscription> findByBranchId(@Param("branchId") Long branchId, Pageable pageable);
+
+    /**
+     * Buscar suscripciones activas por sucursal
+     */
+    @EntityGraph(attributePaths = {"user", "clazz", "clazz.branch"})
+    @Query("SELECT DISTINCT cs FROM ClassSubscription cs " +
+           "JOIN cs.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId AND cs.active = true")
+    List<ClassSubscription> findByBranchIdAndActiveTrue(@Param("branchId") Long branchId);
+
+    /**
+     * Buscar suscripciones activas por sucursal con paginación
+     */
+    @Query("SELECT cs FROM ClassSubscription cs " +
+           "JOIN cs.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId AND cs.active = true")
+    Page<ClassSubscription> findByBranchIdAndActiveTrue(@Param("branchId") Long branchId, Pageable pageable);
+
+    /**
+     * Contar suscripciones por sucursal
+     */
+    @Query("SELECT COUNT(cs) FROM ClassSubscription cs " +
+           "JOIN cs.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId")
+    long countByBranchId(@Param("branchId") Long branchId);
+
+    /**
+     * Contar suscripciones activas por sucursal
+     */
+    @Query("SELECT COUNT(cs) FROM ClassSubscription cs " +
+           "JOIN cs.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId AND cs.active = true")
+    long countByBranchIdAndActiveTrue(@Param("branchId") Long branchId);
 }
 

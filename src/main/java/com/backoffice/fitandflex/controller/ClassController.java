@@ -15,6 +15,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -1020,5 +1023,60 @@ public class ClassController {
                 .message("Suscripción cancelada exitosamente")
                 .data(subscription)
                 .build());
+    }
+
+    @Operation(
+        summary = "Obtener suscripciones por sucursal",
+        description = "Obtiene todas las suscripciones de una sucursal con paginación. Similar a /api/reservations/branch/{branchId}"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Suscripciones obtenidas exitosamente",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Page.class)
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Sucursal no encontrada",
+            content = @Content(
+                mediaType = "application/json",
+                schema = @Schema(implementation = Map.class)
+            )
+        )
+    })
+    @GetMapping("/subscriptions/branch/{branchId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'BRANCH_ADMIN')")
+    public ResponseEntity<Page<ClassDTO.SubscriptionResponse>> getSubscriptionsByBranch(
+            @Parameter(description = "ID de la sucursal", example = "2", required = true)
+            @PathVariable Long branchId,
+            @Parameter(description = "Número de página (por defecto: 0)", required = false) 
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @Parameter(description = "Tamaño de página (por defecto: 10)", required = false) 
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @Parameter(description = "Campo por el cual ordenar (por defecto: id)", required = false) 
+            @RequestParam(value = "sort", defaultValue = "id") String sort,
+            @Parameter(description = "Dirección de ordenamiento (asc o desc, por defecto: asc)", required = false) 
+            @RequestParam(value = "direction", defaultValue = "asc") String direction,
+            @Parameter(description = "Filtrar solo suscripciones activas (por defecto: false)", required = false) 
+            @RequestParam(value = "activeOnly", defaultValue = "false") boolean activeOnly) {
+        
+        log.info("Obteniendo suscripciones para sucursal {} con paginación: page={}, size={}, sort={}, activeOnly={}", 
+                branchId, page, size, sort, activeOnly);
+        
+        // Crear Pageable
+        Sort.Direction sortDirection = "desc".equalsIgnoreCase(direction) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortDirection, sort));
+        
+        Page<ClassDTO.SubscriptionResponse> subscriptions;
+        if (activeOnly) {
+            subscriptions = subscriptionService.getActiveSubscriptionsByBranchId(branchId, pageable);
+        } else {
+            subscriptions = subscriptionService.getSubscriptionsByBranchId(branchId, pageable);
+        }
+        
+        return ResponseEntity.ok(subscriptions);
     }
 }

@@ -122,29 +122,34 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     /**
      * Buscar reservas por sucursal (a través del horario)
+     * Usa JOIN FETCH para cargar relaciones y evitar problemas de lazy loading
      */
-    @Query("SELECT r FROM Reservation r " +
-           "JOIN r.schedule s " +
-           "JOIN s.clazz c " +
-           "WHERE c.branch.id = :branchId")
+    @Query("SELECT DISTINCT r FROM Reservation r " +
+           "JOIN FETCH r.schedule s " +
+           "JOIN FETCH s.clazz c " +
+           "JOIN FETCH c.branch b " +
+           "WHERE b.id = :branchId")
     List<Reservation> findByBranchId(@Param("branchId") Long branchId);
 
     /**
      * Buscar reservas por sucursal con paginación
+     * Nota: No se puede usar JOIN FETCH con Page, así que usamos JOIN normal
      */
     @Query("SELECT r FROM Reservation r " +
            "JOIN r.schedule s " +
            "JOIN s.clazz c " +
-           "WHERE c.branch.id = :branchId")
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId")
     Page<Reservation> findByBranchId(@Param("branchId") Long branchId, Pageable pageable);
 
     /**
      * Buscar reservas por sucursal y estado
      */
-    @Query("SELECT r FROM Reservation r " +
-           "JOIN r.schedule s " +
-           "JOIN s.clazz c " +
-           "WHERE c.branch.id = :branchId AND r.status = :status")
+    @Query("SELECT DISTINCT r FROM Reservation r " +
+           "JOIN FETCH r.schedule s " +
+           "JOIN FETCH s.clazz c " +
+           "JOIN FETCH c.branch b " +
+           "WHERE b.id = :branchId AND r.status = :status")
     List<Reservation> findByBranchIdAndStatus(@Param("branchId") Long branchId, @Param("status") ReservationStatus status);
 
     /**
@@ -153,7 +158,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     @Query("SELECT r FROM Reservation r " +
            "JOIN r.schedule s " +
            "JOIN s.clazz c " +
-           "WHERE c.branch.id = :branchId AND r.status = :status")
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId AND r.status = :status")
     Page<Reservation> findByBranchIdAndStatus(@Param("branchId") Long branchId, @Param("status") ReservationStatus status, Pageable pageable);
 
     /**
@@ -223,4 +229,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
      * Buscar reservas por estado y rango de fechas con paginación
      */
     Page<Reservation> findByStatusAndReservationDateBetween(ReservationStatus status, LocalDateTime startDate, LocalDateTime endDate, Pageable pageable);
+
+    /**
+     * Contar reservas por sucursal (para debugging)
+     */
+    @Query("SELECT COUNT(r) FROM Reservation r " +
+           "JOIN r.schedule s " +
+           "JOIN s.clazz c " +
+           "JOIN c.branch b " +
+           "WHERE b.id = :branchId")
+    long countByBranchId(@Param("branchId") Long branchId);
 }

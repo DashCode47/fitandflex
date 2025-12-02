@@ -4,11 +4,14 @@ import com.backoffice.fitandflex.dto.ClassDTO;
 import com.backoffice.fitandflex.entity.Class;
 import com.backoffice.fitandflex.entity.ClassSubscription;
 import com.backoffice.fitandflex.entity.User;
+import com.backoffice.fitandflex.repository.BranchRepository;
 import com.backoffice.fitandflex.repository.ClassRepository;
 import com.backoffice.fitandflex.repository.ClassSubscriptionRepository;
 import com.backoffice.fitandflex.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ public class ClassSubscriptionService {
     private final ClassSubscriptionRepository subscriptionRepository;
     private final ClassRepository classRepository;
     private final UserRepository userRepository;
+    private final BranchRepository branchRepository;
 
     /**
      * Crear una nueva suscripción
@@ -309,6 +313,50 @@ public class ClassSubscriptionService {
         
         log.info("Suscripción cancelada exitosamente: {}", savedSubscription.getId());
         return ClassDTO.SubscriptionResponse.fromEntity(savedSubscription);
+    }
+
+    /**
+     * Obtener todas las suscripciones de una sucursal con paginación
+     */
+    @Transactional(readOnly = true)
+    public Page<ClassDTO.SubscriptionResponse> getSubscriptionsByBranchId(Long branchId, Pageable pageable) {
+        log.info("Obteniendo suscripciones para sucursal {} con paginación: {}", branchId, pageable);
+        
+        // Validar que la sucursal existe
+        if (!branchRepository.existsById(branchId)) {
+            throw new IllegalArgumentException("Sucursal no encontrada con ID: " + branchId);
+        }
+        
+        // Contar total para debugging
+        long totalCount = subscriptionRepository.countByBranchId(branchId);
+        log.debug("Total de suscripciones encontradas para branch {}: {}", branchId, totalCount);
+        
+        Page<ClassSubscription> subscriptions = subscriptionRepository.findByBranchId(branchId, pageable);
+        log.info("Suscripciones obtenidas: {} de {}", subscriptions.getNumberOfElements(), subscriptions.getTotalElements());
+        
+        return subscriptions.map(ClassDTO.SubscriptionResponse::fromEntity);
+    }
+
+    /**
+     * Obtener todas las suscripciones activas de una sucursal con paginación
+     */
+    @Transactional(readOnly = true)
+    public Page<ClassDTO.SubscriptionResponse> getActiveSubscriptionsByBranchId(Long branchId, Pageable pageable) {
+        log.info("Obteniendo suscripciones activas para sucursal {} con paginación: {}", branchId, pageable);
+        
+        // Validar que la sucursal existe
+        if (!branchRepository.existsById(branchId)) {
+            throw new IllegalArgumentException("Sucursal no encontrada con ID: " + branchId);
+        }
+        
+        // Contar total para debugging
+        long totalCount = subscriptionRepository.countByBranchIdAndActiveTrue(branchId);
+        log.debug("Total de suscripciones activas encontradas para branch {}: {}", branchId, totalCount);
+        
+        Page<ClassSubscription> subscriptions = subscriptionRepository.findByBranchIdAndActiveTrue(branchId, pageable);
+        log.info("Suscripciones activas obtenidas: {} de {}", subscriptions.getNumberOfElements(), subscriptions.getTotalElements());
+        
+        return subscriptions.map(ClassDTO.SubscriptionResponse::fromEntity);
     }
 }
 
