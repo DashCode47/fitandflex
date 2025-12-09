@@ -9,6 +9,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 public class CorsConfig {
@@ -29,12 +30,18 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Configurar orígenes permitidos
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        // Configurar orígenes permitidos (eliminar espacios en blanco)
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
         configuration.setAllowedOriginPatterns(origins);
         
-        // Configurar métodos HTTP permitidos
-        List<String> methods = Arrays.asList(allowedMethods.split(","));
+        // Configurar métodos HTTP permitidos (eliminar espacios en blanco)
+        List<String> methods = Arrays.stream(allowedMethods.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
         configuration.setAllowedMethods(methods);
         
         // Configurar headers permitidos
