@@ -16,11 +16,13 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,8 +31,23 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.test.context.ActiveProfiles;
 
-@WebMvcTest(AuthController.class)
+@WebMvcTest(
+    controllers = AuthController.class,
+    excludeFilters = @ComponentScan.Filter(
+        type = FilterType.ASSIGNABLE_TYPE,
+        classes = {
+            com.backoffice.fitandflex.config.AwsS3Config.class,
+            com.backoffice.fitandflex.service.S3Service.class,
+            com.backoffice.fitandflex.controller.VideoController.class
+        }
+    )
+)
+@ActiveProfiles("test")
 class AuthControllerTest {
 
     @Autowired
@@ -44,6 +61,9 @@ class AuthControllerTest {
 
     @MockBean
     private UserRepository userRepository;
+
+    @MockBean
+    private com.backoffice.fitandflex.security.UserDetailsServiceImpl userDetailsService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -86,7 +106,10 @@ class AuthControllerTest {
         
         when(authenticationManager.authenticate(any())).thenReturn(mockAuth);
         when(mockAuth.getPrincipal()).thenReturn(mockUserDetails);
-        when(mockUserDetails.getAuthorities()).thenReturn(List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        @SuppressWarnings("unchecked")
+        Collection<? extends GrantedAuthority> authorities = (Collection<? extends GrantedAuthority>) 
+            Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+        doReturn(authorities).when(mockUserDetails).getAuthorities();
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(testUser));
         when(jwtService.generateToken(any(), any())).thenReturn("mock-jwt-token");
         when(jwtService.getExpirationTime()).thenReturn(3600000L);

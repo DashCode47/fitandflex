@@ -29,21 +29,21 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // Configurar orígenes permitidos (eliminar espacios en blanco)
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
         configuration.setAllowedOriginPatterns(origins);
-        
+
         // Configurar métodos HTTP permitidos (eliminar espacios en blanco)
         List<String> methods = Arrays.stream(allowedMethods.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
         configuration.setAllowedMethods(methods);
-        
+
         // Configurar headers permitidos
         if ("*".equals(allowedHeaders)) {
             configuration.addAllowedHeader("*");
@@ -51,16 +51,16 @@ public class CorsConfig {
             List<String> headers = Arrays.asList(allowedHeaders.split(","));
             configuration.setAllowedHeaders(headers);
         }
-        
+
         // Permitir credenciales
         configuration.setAllowCredentials(allowCredentials);
-        
+
         // Configurar tiempo de caché para preflight requests
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-        
+
         return source;
     }
 }

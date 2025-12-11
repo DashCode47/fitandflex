@@ -39,8 +39,7 @@ public class SecurityConfig {
     // optional: provider
     @Bean
     public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider prov = new DaoAuthenticationProvider();
-        prov.setUserDetailsService(userDetailsService);
+        DaoAuthenticationProvider prov = new DaoAuthenticationProvider(userDetailsService);
         prov.setPasswordEncoder(passwordEncoder());
         return prov;
     }
@@ -59,6 +58,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Endpoints públicos - autenticación
                         .requestMatchers("/", "/api", "/api/auth/login", "/api/auth/logout").permitAll()
+                        // Videos - acceso público para GET, autenticado para POST/DELETE
+                        .requestMatchers("/api/videos/**").permitAll()
                         // Actuator - solo health público, el resto requiere auth
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/**").hasRole("SUPER_ADMIN")

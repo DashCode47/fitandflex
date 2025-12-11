@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS videos (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    s3_key VARCHAR(500) NOT NULL UNIQUE,
+    file_name VARCHAR(255) NOT NULL,
+    content_type VARCHAR(100),
+    size BIGINT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_video_title ON videos(title);

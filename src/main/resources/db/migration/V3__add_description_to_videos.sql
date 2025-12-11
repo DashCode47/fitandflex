@@ -1,0 +1,2 @@
+ALTER TABLE videos
+ADD COLUMN description VARCHAR(1000);
